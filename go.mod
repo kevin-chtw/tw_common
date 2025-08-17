@@ -9,6 +9,8 @@ require (
 	google.golang.org/protobuf v1.36.7
 )
 
+replace github.com/kevin-chtw/tw_proto => ../tw_proto
+
 require (
 	github.com/DataDog/datadog-go v4.8.3+incompatible // indirect
 	github.com/Microsoft/go-winio v0.6.1 // indirect

@@ -42,11 +42,12 @@ type Table struct {
 	players       map[string]*Player // 玩家ID -> Player
 	status        string             // "preparing", "playing", "finished"
 	app           pitaya.Pitaya
-	matchType     int32  // 0: 普通匹配, 1: 房卡模式
-	scoreBase     int64  // 分数基数
-	gameCount     int32  // 游戏局数
-	playerCount   int32  // 玩家数量
-	gameRule      string // 游戏配置
+	matchType     int32            // 0: 普通匹配, 1: 房卡模式
+	scoreBase     int64            // 分数基数
+	gameCount     int32            // 游戏局数
+	playerCount   int32            // 玩家数量
+	property      string           // 游戏配置
+	fdproperty    map[string]int32 // 房间属性
 	lastHandData  any
 	ticker        *time.Ticker // 定时器
 	done          chan bool    // 停止信号
@@ -65,6 +66,7 @@ func NewTable(gameID, matchID, tableID int32, app pitaya.Pitaya) *Table {
 		matchServerId: "",
 		players:       make(map[string]*Player),
 		status:        TableStatusPreparing,
+		fdproperty:    make(map[string]int32),
 		app:           app,
 		done:          make(chan bool),
 		handlers:      make(map[string]func(player *Player, req *cproto.GameReq)),
@@ -214,7 +216,8 @@ func (t *Table) HandleAddTable(ctx context.Context, msg proto.Message) (proto.Me
 	t.scoreBase = int64(req.GetScoreBase())
 	t.gameCount = req.GetGameCount()
 	t.playerCount = req.GetPlayerCount()
-	t.gameRule = req.GetGameConfig()
+	t.property = req.GetProperty()
+	t.fdproperty = req.GetFdproperty()
 	return &sproto.AddTableAck{ErrorCode: int32(0)}, nil
 }
 
@@ -317,7 +320,7 @@ func (t *Table) GetPlayerCount() int32 {
 }
 
 func (t *Table) GetGameRule() string {
-	return t.gameRule
+	return t.property
 }
 
 func (t *Table) GetScoreBase() int64 {
