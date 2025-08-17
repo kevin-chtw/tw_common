@@ -15,3 +15,12 @@ func TypeUrl(src proto.Message) string {
 
 	return any.GetTypeUrl()
 }
+
+func ToAny(ack proto.Message) *anypb.Any {
+	data, err := anypb.New(ack)
+	if err != nil {
+		logger.Log.Error(err)
+		return nil
+	}
+	return data
+}
