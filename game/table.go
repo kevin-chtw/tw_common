@@ -57,9 +57,9 @@ type Table struct {
 }
 
 // NewTable 创建新的游戏桌实例
-func NewTable(gameId, matchID, tableID int32, app pitaya.Pitaya) *Table {
+func NewTable(gameID, matchID, tableID int32, app pitaya.Pitaya) *Table {
 	t := &Table{
-		gameID:        gameId,
+		gameID:        gameID,
 		matchID:       matchID,
 		tableID:       tableID,
 		matchServerId: "",
@@ -98,8 +98,6 @@ func TypeUrl(src proto.Message) string {
 }
 
 func (t *Table) Init() {
-	logrus.Info("PlayerService initialized")
-
 	t.handlers[TypeUrl(&cproto.EnterGameReq{})] = t.handleEnterGame
 	t.handlers[TypeUrl(&cproto.TableMsgReq{})] = t.handleTableMsg
 }
