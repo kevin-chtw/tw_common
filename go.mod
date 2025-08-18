@@ -4,6 +4,7 @@ go 1.24.4
 
 require (
 	github.com/kevin-chtw/tw_proto v0.0.0-20250817090421-de16e4c22163
+	github.com/lestrrat-go/file-rotatelogs v2.4.0+incompatible
 	github.com/sirupsen/logrus v1.9.3
 	github.com/topfreegames/pitaya/v3 v3.0.0-beta.6
 	google.golang.org/protobuf v1.36.7
@@ -35,6 +36,7 @@ require (
 	github.com/hashicorp/hcl v1.0.0 // indirect
 	github.com/klauspost/compress v1.17.11 // indirect
 	github.com/leodido/go-urn v1.2.4 // indirect
+	github.com/lestrrat-go/strftime v1.1.1 // indirect
 	github.com/magiconair/properties v1.8.7 // indirect
 	github.com/mailgun/proxyproto v1.0.0 // indirect
 	github.com/matttproud/golang_protobuf_extensions v1.0.4 // indirect
