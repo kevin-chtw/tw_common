@@ -34,7 +34,8 @@ func NewMatch(app pitaya.Pitaya) *Match {
 func (m *Match) Init() {
 	m.handlers[utils.TypeUrl(&sproto.AddTableReq{})] = (*game.Table).HandleAddTable
 	m.handlers[utils.TypeUrl(&sproto.AddPlayerReq{})] = (*game.Table).HandleAddPlayer
-	m.handlers[utils.TypeUrl(&sproto.CancelTableAck{})] = (*game.Table).HandleCancelTable
+	m.handlers[utils.TypeUrl(&sproto.CancelTableReq{})] = (*game.Table).HandleCancelTable
+	m.handlers[utils.TypeUrl(&sproto.NetStateReq{})] = (*game.Table).HandleNetState
 }
 
 // Message 处理匹配服务消息
@@ -73,7 +74,7 @@ func (m *Match) newMatch2GameAck(req *sproto.Match2GameReq, ack proto.Message) (
 		return nil, err
 	}
 	return &sproto.Match2GameAck{
-		Gameid:  0,
+		Gameid:  req.Gameid,
 		Matchid: req.GetMatchid(),
 		Tableid: req.GetTableid(),
 		Ack:     data,

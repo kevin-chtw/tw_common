@@ -124,8 +124,8 @@ func (t *Table) handleEnterGame(player *Player, _ *cproto.GameReq) {
 	// 添加玩家到桌中
 	t.players[player.id] = player
 	t.broadcastTablePlayer(player)
-	t.SendTablePlayer(player)
-	player.SetStatus(PlayerStatusReady)
+	t.notifyTablePlayer(player)
+	player.Status = PlayerStatusEnter
 
 	// 检查是否满足开赛条件
 	if t.isAllPlayersReady() {
@@ -160,7 +160,7 @@ func (t *Table) broadcastTablePlayer(player *Player) {
 	logrus.Infof("Player %s added to table %d", player.id, t.tableID)
 }
 
-func (t *Table) SendTablePlayer(player *Player) {
+func (t *Table) notifyTablePlayer(player *Player) {
 	for _, p := range t.players {
 		if p.id != player.id {
 			ack := &cproto.TablePlayerAck{
@@ -174,10 +174,6 @@ func (t *Table) SendTablePlayer(player *Player) {
 }
 
 func (t *Table) newMsg(ack proto.Message) *cproto.GameAck {
-	if ack == nil {
-		return nil
-	}
-
 	data, err := anypb.New(ack)
 	if err != nil {
 		return nil
@@ -218,7 +214,7 @@ func (t *Table) HandleAddTable(ctx context.Context, msg proto.Message) (proto.Me
 	t.playerCount = req.GetPlayerCount()
 	t.property = req.GetProperty()
 	t.fdproperty = req.GetFdproperty()
-	return &sproto.AddTableAck{ErrorCode: int32(0)}, nil
+	return &sproto.EmptyAck{}, nil
 }
 
 func (t *Table) HandleAddPlayer(ctx context.Context, msg proto.Message) (proto.Message, error) {
@@ -232,16 +228,12 @@ func (t *Table) HandleAddPlayer(ctx context.Context, msg proto.Message) (proto.M
 	player.AddScore(req.Score)
 	t.players[req.Playerid] = player
 
-	return &sproto.AddPlayerAck{ErrorCode: int32(0)}, nil
+	return &sproto.EmptyAck{}, nil
 }
 
 func (t *Table) HandleCancelTable(ctx context.Context, msg proto.Message) (proto.Message, error) {
 	if t.status == TableStatusPlaying {
 		return nil, errors.New("cannot cancel a playing table")
-	}
-	// 清理玩家状态
-	for _, player := range t.players {
-		player.SetStatus(PlayerStatusOffline)
 	}
 	for _, player := range t.players {
 		playerManager.Delete(player.id) // 从玩家管理器中删除玩家
@@ -259,7 +251,26 @@ func (t *Table) HandleCancelTable(ctx context.Context, msg proto.Message) (proto
 	t.game = nil
 	t.gameMutex.Unlock()
 
-	return &sproto.CancelTableAck{ErrorCode: int32(0)}, nil
+	return &sproto.EmptyAck{}, nil
+}
+
+func (t *Table) HandleNetState(ctx context.Context, msg proto.Message) (proto.Message, error) {
+	req := msg.(*sproto.NetStateReq)
+	player := playerManager.GetPlayer(req.Uid)
+	if player == nil {
+		return nil, errors.New("player not found")
+	}
+
+	if player.online == req.Online {
+		return nil, errors.New("player online status not changed")
+	}
+	player.online = req.Online
+	if req.Online {
+		t.notifyTablePlayer(player)
+		// TODO: 重新连接游戏逻辑
+	}
+
+	return &sproto.NetStateAck{Uid: req.Uid}, nil
 }
 
 func (t *Table) NotifyGameOver() {
@@ -338,7 +349,7 @@ func (t *Table) onTick() {
 func (t *Table) broadcast(msg *cproto.GameAck) {
 	players := make([]string, 0, len(t.players))
 	for _, player := range t.players {
-		if player.Status != PlayerStatusOffline && player.Status != PlayerStatusUnEnter {
+		if player.online && player.Status != PlayerStatusUnEnter {
 			players = append(players, player.id)
 		}
 	}
