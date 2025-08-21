@@ -1,13 +1,15 @@
 package mahjong
 
 import (
+	"errors"
+
 	"github.com/kevin-chtw/tw_common/game"
 )
 
 type IGame interface {
 	CreatePlay() IPlay
 	OnStart()
-	OnReqMsg(seat int32, data []byte)
+	OnReqMsg(seat int32, data []byte) error
 }
 
 type Game struct {
@@ -47,19 +49,29 @@ func (g *Game) OnGameBegin() {
 	g.enterNextState()
 }
 
-func (g *Game) OnPlayerMsg(player *game.Player, data []byte) {
+func (g *Game) OnPlayerMsg(player *game.Player, data []byte) error {
 	seat := player.Seat
 	if !g.IsValidSeat(seat) {
-		return
+		return errors.New("invalid seat")
 	}
 
-	g.IGame.OnReqMsg(seat, data)
+	if err := g.IGame.OnReqMsg(seat, data); err != nil {
+		return err
+	}
 	g.enterNextState()
+	return nil
 }
 
 func (g *Game) OnGameTimer() {
 	g.timer.OnTick()
 	g.enterNextState()
+}
+
+func (g *Game) OnNetChange(player *game.Player, offline bool) {
+	if p := g.GetPlayer(player.Seat); p != nil {
+		p.isOffline = offline
+		g.enterNextState()
+	}
 }
 
 func (g *Game) GetTimer() *Timer {

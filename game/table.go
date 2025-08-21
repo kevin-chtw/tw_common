@@ -10,6 +10,7 @@ import (
 	"github.com/kevin-chtw/tw_proto/sproto"
 	"github.com/sirupsen/logrus"
 	pitaya "github.com/topfreegames/pitaya/v3/pkg"
+	"github.com/topfreegames/pitaya/v3/pkg/logger"
 	"google.golang.org/protobuf/encoding/protojson"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/anypb"
@@ -19,9 +20,11 @@ type IGame interface {
 	// OnGameBegin 游戏开始
 	OnGameBegin()
 	// OnPlayerMsg 处理玩家消息
-	OnPlayerMsg(player *Player, data []byte)
+	OnPlayerMsg(player *Player, data []byte) error
 	// OnGameTimer 每秒调用一次
 	OnGameTimer()
+	// OnNetChange 处理玩家网络状态变化
+	OnNetChange(player *Player, offline bool)
 }
 
 const (
@@ -42,7 +45,7 @@ type Table struct {
 	players       map[string]*Player // 玩家ID -> Player
 	status        string             // "preparing", "playing", "finished"
 	app           pitaya.Pitaya
-	matchType     int32            // 0: 普通匹配, 1: 房卡模式
+	matchType     string           //
 	scoreBase     int64            // 分数基数
 	gameCount     int32            // 游戏局数
 	playerCount   int32            // 玩家数量
@@ -51,10 +54,11 @@ type Table struct {
 	lastHandData  any
 	ticker        *time.Ticker // 定时器
 	done          chan bool    // 停止信号
-	handlers      map[string]func(player *Player, req *cproto.GameReq)
-
-	gameMutex sync.Mutex // 保护game的对象锁
-	game      IGame      // 游戏逻辑处理接口
+	handlers      map[string]func(*Player, *cproto.GameReq) error
+	gameMutex     sync.Mutex // 保护game的对象锁
+	game          IGame      // 游戏逻辑处理接口
+	historyMsg    map[string][]*cproto.GameAck
+	historyMutex  sync.Mutex // 保护historyMsg的锁
 }
 
 // NewTable 创建新的游戏桌实例
@@ -69,9 +73,10 @@ func NewTable(gameID, matchID, tableID int32, app pitaya.Pitaya) *Table {
 		fdproperty:    make(map[string]int32),
 		app:           app,
 		done:          make(chan bool),
-		handlers:      make(map[string]func(player *Player, req *cproto.GameReq)),
+		handlers:      make(map[string]func(*Player, *cproto.GameReq) error),
 		gameMutex:     sync.Mutex{},
 		game:          nil,
+		historyMsg:    make(map[string][]*cproto.GameAck),
 	}
 
 	// 启动定时器
@@ -105,20 +110,22 @@ func (t *Table) Init() {
 }
 
 // OnPlayerMsg 处理玩家消息
-func (t *Table) OnPlayerMsg(ctx context.Context, player *Player, req *cproto.GameReq) {
+func (t *Table) OnPlayerMsg(ctx context.Context, player *Player, req *cproto.GameReq) error {
 	if req == nil || req.Req == nil {
-		return
+		return errors.New("invalid request")
 	}
 
 	if handler, ok := t.handlers[req.Req.TypeUrl]; ok {
-		handler(player, req)
+		return handler(player, req)
 	}
+
+	return errors.New("unknown request type")
 }
 
 // handleEnterGame 处理玩家进入游戏请求
-func (t *Table) handleEnterGame(player *Player, _ *cproto.GameReq) {
+func (t *Table) handleEnterGame(player *Player, _ *cproto.GameReq) error {
 	if !t.isOnTable(player.id) {
-		return // 玩家不在桌上
+		return errors.New("player not on table")
 	}
 
 	// 添加玩家到桌中
@@ -135,19 +142,21 @@ func (t *Table) handleEnterGame(player *Player, _ *cproto.GameReq) {
 		t.game = CreateGame(t.gameID, t)
 		t.game.OnGameBegin()
 	}
+	return nil
 }
 
-func (t *Table) handleTableMsg(player *Player, req *cproto.GameReq) {
+func (t *Table) handleTableMsg(player *Player, req *cproto.GameReq) error {
 	t.gameMutex.Lock()
 	defer t.gameMutex.Unlock()
 	msg := &cproto.TableMsgReq{}
 	if err := proto.Unmarshal(req.Req.Value, msg); err != nil {
-		return
+		return err
 	}
 	data := msg.GetMsg()
 	if t.game != nil && data != nil {
-		t.game.OnPlayerMsg(player, data)
+		return t.game.OnPlayerMsg(player, data)
 	}
+	return errors.New("game not started")
 }
 
 func (t *Table) broadcastTablePlayer(player *Player) {
@@ -223,7 +232,10 @@ func (t *Table) HandleAddPlayer(ctx context.Context, msg proto.Message) (proto.M
 		return nil, errors.New("player already on table")
 	}
 
-	player := playerManager.GetPlayer(req.Playerid)
+	player, err := playerManager.Store(req.Playerid)
+	if err != nil {
+		return nil, err
+	}
 	player.SetSeat(req.Seat)
 	player.AddScore(req.Score)
 	t.players[req.Playerid] = player
@@ -256,7 +268,7 @@ func (t *Table) HandleCancelTable(ctx context.Context, msg proto.Message) (proto
 
 func (t *Table) HandleNetState(ctx context.Context, msg proto.Message) (proto.Message, error) {
 	req := msg.(*sproto.NetStateReq)
-	player := playerManager.GetPlayer(req.Uid)
+	player := playerManager.Get(req.Uid)
 	if player == nil {
 		return nil, errors.New("player not found")
 	}
@@ -267,7 +279,11 @@ func (t *Table) HandleNetState(ctx context.Context, msg proto.Message) (proto.Me
 	player.online = req.Online
 	if req.Online {
 		t.notifyTablePlayer(player)
-		// TODO: 重新连接游戏逻辑
+		t.sendHisMsges(player)
+	}
+
+	if t.game != nil {
+		t.game.OnNetChange(player, req.Online)
 	}
 
 	return &sproto.NetStateAck{Uid: req.Uid}, nil
@@ -275,17 +291,26 @@ func (t *Table) HandleNetState(ctx context.Context, msg proto.Message) (proto.Me
 
 func (t *Table) NotifyGameOver() {
 	t.status = TableStatusFinished
-	t.Send2Match()
+	result := &sproto.TableResultAck{}
+	t.Send2Match(result)
 }
 
-func (t *Table) Send2Match() error {
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-	defer cancel()
-	if err := t.app.RPCTo(ctx, t.matchServerId, "match.game.message", nil, &sproto.Match2GameAck{}); err != nil {
-		t.status = "preparing" // 回滚状态
-		return err
+func (t *Table) Send2Match(msg proto.Message) {
+	data, err := anypb.New(msg)
+	if err != nil {
+		logger.Log.Error(err.Error())
+		return
 	}
-	return nil
+	ack := &sproto.Match2GameAck{
+		Gameid:  t.gameID,
+		Matchid: t.matchID,
+		Tableid: t.tableID,
+		Ack:     data,
+	}
+	req := &sproto.Match2GameReq{}
+	if err := t.app.RPCTo(context.Background(), t.matchServerId, t.matchType+".game.message", req, ack); err != nil {
+		logger.Log.Error(err.Error())
+	}
 }
 
 func (t *Table) Send2Player(ack proto.Message, seat int32) {
@@ -347,19 +372,43 @@ func (t *Table) onTick() {
 }
 
 func (t *Table) broadcast(msg *cproto.GameAck) {
-	players := make([]string, 0, len(t.players))
+	uids := make([]string, 0, len(t.players))
 	for _, player := range t.players {
 		if player.online && player.Status != PlayerStatusUnEnter {
-			players = append(players, player.id)
+			uids = append(uids, player.id)
 		}
 	}
-	t.sendMsg(msg, players)
+	t.sendMsg(msg, uids)
 }
 
-func (t *Table) sendMsg(msg *cproto.GameAck, players []string) {
-	if m, err := t.app.SendPushToUsers("gamemsg", msg, players, "proxy"); err != nil {
-		logrus.Errorf("send game message to player %v failed: %v", players, err)
+func (t *Table) sendMsg(msg *cproto.GameAck, uids []string) {
+	t.addHisMsg(uids, msg)
+	if m, err := t.app.SendPushToUsers(t.app.GetServer().Type, msg, uids, "proxy"); err != nil {
+		logger.Log.Errorf("send game message to player %v failed: %v", uids, err)
 	} else {
-		logrus.Infof("send game message to player %v: %v", players, m)
+		logger.Log.Debugf("send game message to player %v success: %v", uids, m)
 	}
+}
+
+func (t *Table) addHisMsg(uids []string, gameAck *cproto.GameAck) {
+	t.historyMutex.Lock()
+	defer t.historyMutex.Unlock()
+	for _, uid := range uids {
+		if _, exists := t.historyMsg[uid]; !exists {
+			t.historyMsg[uid] = []*cproto.GameAck{}
+		}
+		t.historyMsg[uid] = append(t.historyMsg[uid], gameAck)
+	}
+}
+
+func (t *Table) sendHisMsges(player *Player) {
+	t.historyMutex.Lock()
+	defer t.historyMutex.Unlock()
+	t.app.SendPushToUsers(t.app.GetServer().Type, t.newMsg(&cproto.HisBeginAck{}), []string{player.id}, "proxy")
+	if msgs, exists := t.historyMsg[player.id]; exists {
+		for _, msg := range msgs {
+			t.app.SendPushToUsers(t.app.GetServer().Type, msg, []string{player.id}, "proxy")
+		}
+	}
+	t.app.SendPushToUsers(t.app.GetServer().Type, t.newMsg(&cproto.HisEndAck{}), []string{player.id}, "proxy")
 }

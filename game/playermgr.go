@@ -1,6 +1,9 @@
 package game
 
-import "sync"
+import (
+	"errors"
+	"sync"
+)
 
 // TableManager 管理游戏桌
 type PlayerManager struct {
@@ -15,22 +18,30 @@ func NewPlayerManager() *PlayerManager {
 	}
 }
 
-// GetPlayer 获取玩家实例
-func (pm *PlayerManager) GetPlayer(userID string) *Player {
-	pm.mu.RLock()
-	defer pm.mu.RUnlock()
+// Get 获取玩家实例
+func (p *PlayerManager) Get(userID string) (player *Player) {
+	p.mu.RLock()
+	defer p.mu.RUnlock()
 
-	player, ok := pm.players[userID]
-	if !ok {
-		player = NewPlayer(userID)
-		pm.players[userID] = player
+	player = p.players[userID]
+	return
+}
+
+func (p *PlayerManager) Store(userId string) (*Player, error) {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	if _, ok := p.players[userId]; ok {
+		return nil, errors.New("player is already in game")
 	}
-	return player
+
+	player := NewPlayer(userId)
+	p.players[userId] = player
+	return player, nil
 }
 
 // DeletePlayer 删除玩家实例
-func (pm *PlayerManager) Delete(userID string) {
-	pm.mu.Lock()
-	defer pm.mu.Unlock()
-	delete(pm.players, userID)
+func (p *PlayerManager) Delete(userID string) {
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	delete(p.players, userID)
 }

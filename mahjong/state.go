@@ -1,6 +1,7 @@
 package mahjong
 
 import (
+	"errors"
 	"time"
 
 	"google.golang.org/protobuf/proto"
@@ -12,7 +13,7 @@ type StateOpts struct {
 
 type IState interface {
 	OnEnter()
-	OnPlayerMsg(seat int32, req proto.Message)
+	OnPlayerMsg(seat int32, req proto.Message) error
 }
 
 func CreateState(newFn func(IGame, ...any) IState, g IGame, args ...any) IState {
@@ -22,7 +23,7 @@ func CreateState(newFn func(IGame, ...any) IState, g IGame, args ...any) IState 
 // State 麻将游戏状态基类
 type State struct {
 	game       *Game
-	msgHandler func(seat int32, req proto.Message)
+	msgHandler func(seat int32, req proto.Message) error
 }
 
 // NewState 创建新的游戏状态
@@ -35,7 +36,7 @@ func NewState(game *Game) *State {
 
 // AsyncMsgTimer 设置异步消息定时器
 func (s *State) AsyncMsgTimer(
-	handler func(seat int32, req proto.Message),
+	handler func(seat int32, req proto.Message) error,
 	timeout time.Duration,
 	onTimeout func(),
 ) {
@@ -50,8 +51,9 @@ func (s *State) AsyncTimer(timeout time.Duration, onTimeout func()) {
 }
 
 // HandlePlayerMsg 处理玩家消息
-func (s *State) OnPlayerMsg(seat int32, req proto.Message) {
+func (s *State) OnPlayerMsg(seat int32, req proto.Message) error {
 	if s.msgHandler != nil {
-		s.msgHandler(seat, req)
+		return s.msgHandler(seat, req)
 	}
+	return errors.New("msgHandler is nil")
 }

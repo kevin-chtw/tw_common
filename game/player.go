@@ -2,13 +2,14 @@ package game
 
 import (
 	"context"
+	"errors"
 
 	"github.com/kevin-chtw/tw_proto/cproto"
 )
 
 const (
 	PlayerStatusUnEnter = iota // 玩家状态：未进入
-	PlayerStatusEnter          // 玩家状态：离线
+	PlayerStatusEnter          // 玩家状态：进入
 	PlayerStatusReady          // 玩家状态：准备
 	PlayerStatusPlaying        // 玩家状态：游戏中
 )
@@ -41,11 +42,11 @@ func (p *Player) AddScore(delta int64) {
 }
 
 // HandleMessage 处理玩家消息
-func (p *Player) HandleMessage(ctx context.Context, req *cproto.GameReq) {
+func (p *Player) HandleMessage(ctx context.Context, req *cproto.GameReq) error {
 	table := tableManager.Get(req.Matchid, req.Tableid)
 	if nil == table {
-		return // 桌子不存在
+		return errors.New("table not found")
 	}
 
-	table.OnPlayerMsg(ctx, p, req)
+	return table.OnPlayerMsg(ctx, p, req)
 }
