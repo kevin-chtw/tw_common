@@ -24,22 +24,30 @@ type Play struct {
 	history      []Action
 	playData     []*PlayData
 	huSeats      []int32
-	huResult     []HuResult
+	huResult     []*HuResult
+	paoChecker   WaitChecker
+	waitcheckers []WaitChecker
 }
 
 func NewPlay(game *Game) *Play {
 	return &Play{
-		game:     game,
-		dealer:   NewDealer(game),
-		curSeat:  SeatNull,
-		curTile:  TileNull,
-		banker:   SeatNull,
-		tilesLai: make([]int32, 0),
-		history:  make([]Action, 0),
-		playData: make([]*PlayData, game.GetPlayerCount()),
-		huSeats:  make([]int32, 0),
-		huResult: make([]HuResult, game.GetPlayerCount()),
+		game:         game,
+		dealer:       NewDealer(game),
+		curSeat:      SeatNull,
+		curTile:      TileNull,
+		banker:       SeatNull,
+		tilesLai:     make([]int32, 0),
+		history:      make([]Action, 0),
+		playData:     make([]*PlayData, game.GetPlayerCount()),
+		huSeats:      make([]int32, 0),
+		huResult:     make([]*HuResult, game.GetPlayerCount()),
+		waitcheckers: make([]WaitChecker, 0),
 	}
+}
+
+func (p *Play) RegisterWaitCheck(paochecher WaitChecker, cks ...WaitChecker) {
+	p.paoChecker = paochecher
+	p.waitcheckers = append(p.waitcheckers, cks...)
 }
 
 func (p *Play) Initialize() {
@@ -55,7 +63,7 @@ func (p *Play) GetDealer() *Dealer {
 }
 
 func (p *Play) GetHuResult(seat int32) *HuResult {
-	return &p.huResult[seat]
+	return p.huResult[seat]
 }
 
 func (p *Play) GetCurScores() []int64 {
@@ -104,7 +112,29 @@ func (p *Play) FetchSelfOperates() *Operates {
 }
 
 func (p *Play) FetchWaitOperates(seat int32) *Operates {
-	return &Operates{}
+	opt := &Operates{}
+
+	if p.game.GetPlayer(seat).isOut {
+		return opt
+	}
+
+	tips := make([]int, 0)
+	tips = p.paoChecker.Check(p, seat, opt, tips)
+
+	if !opt.IsMustHu {
+		for _, v := range p.waitcheckers {
+			tips = v.Check(p, seat, opt, tips)
+		}
+	}
+
+	if len(tips) > 0 {
+		p.sendTips(tips[0], seat)
+	}
+	return opt
+}
+
+func (p *Play) sendTips(tips int, seat int32) {
+	//TODO
 }
 
 func (p *Play) Discard(tile int32) {
@@ -146,7 +176,7 @@ func (p *Play) TryKon(tile int32, konType KonType) bool {
 
 func (p *Play) Pon(seat int32) {
 	playData := p.playData[seat]
-	if !playData.canPon(p.curTile) {
+	if !playData.canPon(p.curTile, p.PlayConf.CanotOnlyLaiAfterPon) {
 		logrus.Error("player cannot pon")
 		return
 	}
@@ -245,12 +275,13 @@ func (p *Play) addHistory(seat int32, tile int32, operate int, extra int) {
 func (p *Play) checkSelfHu(operates *Operates) {
 	data := NewCheckHuData(p, p.playData[p.curSeat], true)
 	if result, hu := Service.CheckHu(data, p.game.rule); hu {
-		p.addHuOperate(operates, result, false)
+		p.addHuOperate(operates, p.curSeat, result, false)
 	}
 }
 
-func (p *Play) addHuOperate(opt *Operates, result *HuResult, mustHu bool) {
+func (p *Play) addHuOperate(opt *Operates, seat int32, result *HuResult, mustHu bool) {
 	opt.Capped = p.PlayConf.IsTopMultiple(result.TotalMuti)
+	p.huResult[seat] = result
 	opt.AddOperate(OperateHu)
 	opt.IsMustHu = mustHu
 }

@@ -1,5 +1,7 @@
 package mahjong
 
+import "slices"
+
 type Group struct {
 	Tile  int32
 	From  int32
@@ -30,8 +32,8 @@ type PlayData struct {
 	outTiles         []int32
 	canGangTiles     []int32
 	tianDiHu         bool
-	passPon          map[int]struct{}
-	passHu           map[int]int
+	passPon          map[int32]struct{}
+	passHu           map[int32]int32
 	qiHuFanLimitTip  bool
 	chowGroups       []ChowGroup
 	ponGroups        []Group
@@ -51,8 +53,8 @@ func NewPlayData(seat int) *PlayData {
 		handTiles:        make([]int32, 0),
 		outTiles:         make([]int32, 0),
 		canGangTiles:     make([]int32, 0),
-		passPon:          make(map[int]struct{}),
-		passHu:           make(map[int]int),
+		passPon:          make(map[int32]struct{}),
+		passHu:           make(map[int32]int32),
 		chowGroups:       make([]ChowGroup, 0),
 		ponGroups:        make([]Group, 0),
 		konGroups:        make([]KonGroup, 0),
@@ -73,7 +75,7 @@ func (p *PlayData) Draw(tile int) {
 }
 
 func (p *PlayData) Discard(tile int32) {
-	RemoveElement(&p.handTiles, tile)
+	p.handTiles = RemoveElements(p.handTiles, tile, 1)
 	p.PutOutTile(tile)
 }
 
@@ -87,7 +89,7 @@ func (p *PlayData) PutHandTile(tile int32) {
 }
 
 func (p *PlayData) RemoveHandTile(tile int32, count int) {
-	// 实现移除多张手牌逻辑
+	p.handTiles = RemoveElements(p.handTiles, tile, count)
 }
 
 func (p *PlayData) PutOutTile(tile int32) {
@@ -98,15 +100,6 @@ func (p *PlayData) RemoveOutTile() {
 	if len(p.outTiles) > 0 {
 		p.outTiles = p.outTiles[:len(p.outTiles)-1]
 	}
-}
-
-func (p *PlayData) HasTile(tile int32) bool {
-	for _, t := range p.handTiles {
-		if t == tile {
-			return true
-		}
-	}
-	return false
 }
 
 func (p *PlayData) canKon(tile int32, konType KonType) bool {
@@ -123,8 +116,41 @@ func (p *PlayData) canKon(tile int32, konType KonType) bool {
 	}
 }
 
-func (p *PlayData) canPon(tile int32) bool {
-	return CountElement(p.handTiles, tile) >= 2
+func (p *PlayData) canPon(tile int32, cantOnlyLaiAfterPon bool) bool {
+	if CountElement(p.handTiles, tile) < 2 {
+		return false
+	}
+	if cantOnlyLaiAfterPon {
+		tiles := RemoveElements(p.handTiles, tile, 2)
+		for _, t := range tiles {
+			if !slices.Contains(p.play.tilesLai, t) {
+				return true
+			}
+		}
+	}
+	return false
+}
+
+func (p *PlayData) canChow(tile int32) bool {
+	color := TileColor(tile)
+	point := TilePoint(tile)
+
+	points := make([]int, PointCountByColor[color])
+
+	for _, t := range p.handTiles {
+		if TileColor(t) == color {
+			points[TilePoint(t)]++
+		}
+	}
+	points[point]++
+	leftPoint := max((point - 2), 0)
+	maxLeftPoint := min(6, point)
+	for i := leftPoint; i <= maxLeftPoint; i++ {
+		if points[i] != 0 && points[i+1] != 0 && points[i+2] != 0 {
+			return true
+		}
+	}
+	return false
 }
 
 func (p *PlayData) GetHandTiles() []int32 {
@@ -143,33 +169,33 @@ func (p *PlayData) TianDiHuState() bool {
 	return p.tianDiHu
 }
 
-func (p *PlayData) IsPassHuTile(tile, fan int) bool {
+func (p *PlayData) IsPassHuTileWithFan(tile, fan int32) bool {
 	if f, ok := p.passHu[tile]; ok {
 		return f == fan
 	}
 	return false
 }
 
-func (p *PlayData) IsPassHuTileWithoutFan(tile int) bool {
+func (p *PlayData) IsPassHuTile(tile int32) bool {
 	_, ok := p.passHu[tile]
 	return ok
 }
 
-func (p *PlayData) IsPassPonTile(tile int) bool {
+func (p *PlayData) IsPassPonTile(tile int32) bool {
 	_, ok := p.passPon[tile]
 	return ok
 }
 
 func (p *PlayData) ClearPass() {
-	p.passPon = make(map[int]struct{})
-	p.passHu = make(map[int]int)
+	p.passPon = make(map[int32]struct{})
+	p.passHu = make(map[int32]int32)
 }
 
-func (p *PlayData) PassPon(tile int) {
+func (p *PlayData) PassPon(tile int32) {
 	p.passPon[tile] = struct{}{}
 }
 
-func (p *PlayData) PassHu(tile, fan int) {
+func (p *PlayData) PassHu(tile, fan int32) {
 	p.passHu[tile] = fan
 }
 
@@ -403,14 +429,14 @@ func (p *PlayData) canSelfKon(rule *Rule, ignoreTiles []int32) bool {
 	p.canGangTiles = make([]int32, 0)
 	counts := make(map[int32]int)
 	for _, tile := range p.handTiles {
-		if !HasElement(ignoreTiles, tile) {
+		if !slices.Contains(ignoreTiles, tile) {
 			counts[tile]++
 		}
 	}
 
 	if !p.call {
 		for _, pon := range p.ponGroups {
-			if p.HasTile(pon.Tile) {
+			if slices.Contains(p.handTiles, pon.Tile) {
 				p.canGangTiles = append(p.canGangTiles, pon.Tile)
 			}
 		}
@@ -448,7 +474,7 @@ func (p *PlayData) canKonAfterCall(tile int32, konType KonType, rule *Rule) bool
 		hudata.TilesInHand = hudata.TilesInHand[:len(hudata.TilesInHand)-1]
 	}
 	call0 := Service.CheckCall(hudata, rule)
-	RemoveAllElement(&hudata.TilesInHand, tile)
+	hudata.TilesInHand = RemoveAllElement(hudata.TilesInHand, tile)
 	call1 := Service.CheckCall(hudata, rule)
 	if len(call0) != 1 || len(call1) != 1 {
 		return false

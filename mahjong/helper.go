@@ -2,6 +2,7 @@ package mahjong
 
 import (
 	"math/rand"
+	"slices"
 	"sort"
 )
 
@@ -70,22 +71,6 @@ func HexChar(value int) byte {
 	return '?'
 }
 
-// HasElement 检查元素是否在容器中
-func HasElement[T comparable](container []T, value T) bool {
-	for _, v := range container {
-		if v == value {
-			return true
-		}
-	}
-	return false
-}
-
-// HasKey 检查键是否在map中
-func HasKey[K comparable, V any](m map[K]V, key K) bool {
-	_, ok := m[key]
-	return ok
-}
-
 // CountElement 计算元素出现次数
 func CountElement[T comparable](container []T, value T) int {
 	count := 0
@@ -97,43 +82,28 @@ func CountElement[T comparable](container []T, value T) int {
 	return count
 }
 
-// RemoveElement 移除第一个匹配的元素
-func RemoveElement[T comparable](container *[]T, value T) bool {
-	for i, v := range *container {
-		if v == value {
-			*container = append((*container)[:i], (*container)[i+1:]...)
-			return true
-		}
-	}
-	return false
-}
-
 // RemoveElements 移除指定数量的匹配元素
-func RemoveElements[T comparable](container *[]T, value T, count int) int {
+func RemoveElements[T comparable](container []T, value T, count int) []T {
 	removed := 0
-	for i := 0; i < len(*container) && removed < count; {
-		if (*container)[i] == value {
-			*container = append((*container)[:i], (*container)[i+1:]...)
+	result := slices.Clone(container)
+
+	for i := 0; i < len(result) && removed < count; {
+		if result[i] == value {
+			result = slices.Delete(result, i, i+1)
 			removed++
 		} else {
 			i++
 		}
 	}
-	return removed
+
+	return result
 }
 
 // RemoveAllElement 移除所有匹配的元素
-func RemoveAllElement[T comparable](container *[]T, value T) int {
-	count := 0
-	for i := 0; i < len(*container); {
-		if (*container)[i] == value {
-			*container = append((*container)[:i], (*container)[i+1:]...)
-			count++
-		} else {
-			i++
-		}
-	}
-	return count
+func RemoveAllElement[T comparable](container []T, value T) []T {
+	return slices.DeleteFunc(container, func(v T) bool {
+		return v == value
+	})
 }
 
 // HasSameKeys 检查两个map的键是否相同
@@ -183,7 +153,7 @@ func HasSameElements[T comparable](v1, v2 []T, reorder bool) bool {
 // HasAnyElement 检查容器中是否包含目标集合中的任一元素
 func HasAnyElement[T comparable](container []T, targets []T) bool {
 	for _, v := range targets {
-		if HasElement(container, v) {
+		if slices.Contains(container, v) {
 			return true
 		}
 	}
@@ -193,7 +163,7 @@ func HasAnyElement[T comparable](container []T, targets []T) bool {
 // HasAllElement 检查容器中是否包含目标集合中的所有元素
 func HasAllElement[T comparable](container []T, targets []T) bool {
 	for _, v := range targets {
-		if !HasElement(container, v) {
+		if !slices.Contains(container, v) {
 			return false
 		}
 	}
@@ -203,7 +173,7 @@ func HasAllElement[T comparable](container []T, targets []T) bool {
 // HasAnyKey 检查map中是否包含目标集合中的任一键
 func HasAnyKey[K comparable, V any](m map[K]V, targets []K) bool {
 	for _, k := range targets {
-		if HasKey(m, k) {
+		if _, ok := m[k]; ok {
 			return true
 		}
 	}
@@ -213,7 +183,7 @@ func HasAnyKey[K comparable, V any](m map[K]V, targets []K) bool {
 // HasAllKey 检查map中是否包含目标集合中的所有键
 func HasAllKey[K comparable, V any](m map[K]V, targets []K) bool {
 	for _, k := range targets {
-		if !HasKey(m, k) {
+		if _, ok := m[k]; !ok {
 			return false
 		}
 	}

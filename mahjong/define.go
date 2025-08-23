@@ -102,6 +102,13 @@ const (
 	TrustTypeFDTNetResume            = 6
 )
 
+const (
+	TipsPassHu   = iota // 过胡
+	TipsPassPon         // 过碰
+	TipsQiHuFan         // 起胡番
+	TipsOnlyZiMo        // 只自摸
+)
+
 type EPlayerType int
 
 const (
@@ -237,16 +244,6 @@ func NextTileInSameColor(tile int32, step int) int32 {
 	step %= count
 	point := (TilePoint(tile) + step + count) % count
 	return MakeTile(color, point, 0) // 默认flag为0
-}
-
-func SwitchAISeat(seat int32) int32 {
-	if seat%2 == 0 {
-		if seat == 0 {
-			return 2
-		}
-		return 0
-	}
-	return seat
 }
 
 type Action struct {

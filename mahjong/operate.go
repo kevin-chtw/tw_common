@@ -1,20 +1,18 @@
 package mahjong
 
 const (
-	OperateNone = -1
-	OperatePass = 0
-	OperateChow = 1 << iota
-	OperatePon
-	OperateKon
-	OperateTing
-	OperateHu
-	OperateDiscard
-	OperateExchange
-	OperateDraw
-	OperateTianTing
-	OperateFlower
-	OperatePass10
-	OperateInvalid = 0
+	OperateNone     = -1
+	OperatePass     = 0         //过
+	OperateChow     = 1 << iota // 吃
+	OperatePon                  // 碰
+	OperateKon                  // 杠
+	OperateTing                 // 听
+	OperateHu                   // 胡
+	OperateDiscard              // 出牌
+	OperateExchange             // 换牌
+	OperateDraw                 // 摸牌
+	OperateTianTing             // 天听
+	OperateFlower               // 换花
 )
 
 var OperateNames = map[int]string{
@@ -29,7 +27,6 @@ var OperateNames = map[int]string{
 	OperateDraw:     "Draw",
 	OperateTianTing: "TianTing",
 	OperateFlower:   "Flower",
-	OperatePass10:   "Pass",
 }
 
 var OperateIDs = map[string]int{
@@ -56,7 +53,7 @@ func (o *Operates) AddOperate(op int32) {
 	o.Value |= op
 }
 
-func (o *Operates) AddOperates(ops Operates) {
+func (o *Operates) AddOperates(ops *Operates) {
 	o.Value |= ops.Value
 }
 

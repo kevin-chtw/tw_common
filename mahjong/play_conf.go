@@ -2,8 +2,6 @@ package mahjong
 
 // PlayConf 功能配置
 type PlayConf struct {
-	HasChow              bool  // 是否吃
-	HasPon               bool  // 是否允许碰
 	PonPass              bool  // 是否过碰不碰
 	HuPass               bool  // 过胡不胡
 	MustHu               bool  // 有胡必胡
