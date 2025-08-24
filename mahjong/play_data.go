@@ -23,42 +23,40 @@ type ChowGroup struct {
 }
 
 type PlayData struct {
-	play             *Play
-	callDataMap      map[int]map[int]int
-	currentDrawTiles map[int]struct{}
-	call             bool
-	tianTing         bool
-	handTiles        []int32
-	outTiles         []int32
-	canGangTiles     []int32
-	tianDiHu         bool
-	passPon          map[int32]struct{}
-	passHu           map[int32]int32
-	qiHuFanLimitTip  bool
-	chowGroups       []ChowGroup
-	ponGroups        []Group
-	konGroups        []KonGroup
-	everPonCount     int
-	everKonCount     int
-	everChiCount     int
-	minTingValue     int
-	drawConfig       int
-	drawRate         int
+	play            *Play
+	callDataMap     map[int]map[int]int
+	call            bool
+	tianTing        bool
+	handTiles       []int32
+	outTiles        []int32
+	canGangTiles    []int32
+	tianDiHu        bool
+	passPon         map[int32]struct{}
+	passHu          map[int32]int32
+	qiHuFanLimitTip bool
+	chowGroups      []ChowGroup
+	ponGroups       []Group
+	konGroups       []KonGroup
+	everPonCount    int
+	everKonCount    int
+	everChiCount    int
+	minTingValue    int
+	drawConfig      int
+	drawRate        int
 }
 
 func NewPlayData(seat int) *PlayData {
 	return &PlayData{
-		callDataMap:      make(map[int]map[int]int),
-		currentDrawTiles: make(map[int]struct{}),
-		handTiles:        make([]int32, 0),
-		outTiles:         make([]int32, 0),
-		canGangTiles:     make([]int32, 0),
-		passPon:          make(map[int32]struct{}),
-		passHu:           make(map[int32]int32),
-		chowGroups:       make([]ChowGroup, 0),
-		ponGroups:        make([]Group, 0),
-		konGroups:        make([]KonGroup, 0),
-		minTingValue:     17,
+		callDataMap:  make(map[int]map[int]int),
+		handTiles:    make([]int32, 0),
+		outTiles:     make([]int32, 0),
+		canGangTiles: make([]int32, 0),
+		passPon:      make(map[int32]struct{}),
+		passHu:       make(map[int32]int32),
+		chowGroups:   make([]ChowGroup, 0),
+		ponGroups:    make([]Group, 0),
+		konGroups:    make([]KonGroup, 0),
+		minTingValue: 17,
 	}
 }
 
@@ -68,10 +66,6 @@ func (p *PlayData) MutableCallDataMap() map[int]map[int]int {
 
 func (p *PlayData) GetCallDataMap() map[int]map[int]int {
 	return p.callDataMap
-}
-
-func (p *PlayData) Draw(tile int) {
-	p.currentDrawTiles[tile] = struct{}{}
 }
 
 func (p *PlayData) Discard(tile int32) {
@@ -480,4 +474,13 @@ func (p *PlayData) canKonAfterCall(tile int32, konType KonType, rule *Rule) bool
 		return false
 	}
 	return HasSameKeys(call0[TileNull], call1[TileNull])
+}
+
+func (p *PlayData) isAllLai() bool {
+	for _, tile := range p.handTiles {
+		if !slices.Contains(p.play.tilesLai, tile) {
+			return false
+		}
+	}
+	return true
 }

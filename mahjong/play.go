@@ -1,6 +1,8 @@
 package mahjong
 
 import (
+	"slices"
+
 	"github.com/sirupsen/logrus"
 )
 
@@ -25,7 +27,7 @@ type Play struct {
 	playData     []*PlayData
 	huSeats      []int32
 	huResult     []*HuResult
-	paoChecker   WaitChecker
+	selfCheckers []SelfChecker
 	waitcheckers []WaitChecker
 }
 
@@ -41,12 +43,15 @@ func NewPlay(game *Game) *Play {
 		playData:     make([]*PlayData, game.GetPlayerCount()),
 		huSeats:      make([]int32, 0),
 		huResult:     make([]*HuResult, game.GetPlayerCount()),
+		selfCheckers: make([]SelfChecker, 0),
 		waitcheckers: make([]WaitChecker, 0),
 	}
 }
 
-func (p *Play) RegisterWaitCheck(paochecher WaitChecker, cks ...WaitChecker) {
-	p.paoChecker = paochecher
+func (p *Play) RegisterSelfCheck(cks ...SelfChecker) {
+	p.selfCheckers = append(p.selfCheckers, cks...)
+}
+func (p *Play) RegisterWaitCheck(cks ...WaitChecker) {
 	p.waitcheckers = append(p.waitcheckers, cks...)
 }
 
@@ -92,39 +97,29 @@ func (p *Play) GetPlayData(seat int32) *PlayData {
 }
 
 func (p *Play) FetchSelfOperates() *Operates {
-	operates := &Operates{}
-	if !p.IsAfterPon() {
-		p.checkSelfHu(operates)
+	opt := &Operates{}
+
+	tips := make([]int, 0)
+	for _, v := range p.selfCheckers {
+		tips = v.Check(p, opt, tips)
 	}
 
-	if !operates.IsMustHu {
-		operates.AddOperate(OperateDiscard)
-		if p.dealer.GetRestCount() > 0 {
-			p.checkSelfKon(operates)
-		}
-
-		if !p.playData[p.curSeat].call {
-			p.checkCall(operates, p.curSeat)
-		}
+	if len(tips) > 0 {
+		p.sendTips(tips[0], p.curSeat)
 	}
 
-	return operates
+	return opt
 }
 
 func (p *Play) FetchWaitOperates(seat int32) *Operates {
 	opt := &Operates{}
-
 	if p.game.GetPlayer(seat).isOut {
 		return opt
 	}
 
 	tips := make([]int, 0)
-	tips = p.paoChecker.Check(p, seat, opt, tips)
-
-	if !opt.IsMustHu {
-		for _, v := range p.waitcheckers {
-			tips = v.Check(p, seat, opt, tips)
-		}
+	for _, v := range p.waitcheckers {
+		tips = v.Check(p, seat, opt, tips)
 	}
 
 	if len(tips) > 0 {
@@ -272,42 +267,11 @@ func (p *Play) addHistory(seat int32, tile int32, operate int, extra int) {
 	p.history = append(p.history, action)
 }
 
-func (p *Play) checkSelfHu(operates *Operates) {
-	data := NewCheckHuData(p, p.playData[p.curSeat], true)
-	if result, hu := Service.CheckHu(data, p.game.rule); hu {
-		p.addHuOperate(operates, p.curSeat, result, false)
-	}
-}
-
 func (p *Play) addHuOperate(opt *Operates, seat int32, result *HuResult, mustHu bool) {
 	opt.Capped = p.PlayConf.IsTopMultiple(result.TotalMuti)
 	p.huResult[seat] = result
 	opt.AddOperate(OperateHu)
 	opt.IsMustHu = mustHu
-}
-
-func (p *Play) checkSelfKon(opt *Operates) {
-	if p.playData[p.curSeat].canSelfKon(p.game.rule, p.tilesLai) {
-		opt.AddOperate(OperateKon)
-	}
-}
-
-func (p *Play) checkCall(operates *Operates, seat int32) {
-	if !p.PlayConf.EnableCall {
-		return
-	}
-
-	huData := NewCheckHuData(p, p.playData[seat], true)
-	callData := Service.CheckCall(huData, p.game.rule)
-	if len(callData) <= 0 {
-		return
-	}
-
-	if p.PlayConf.TianTing && !p.HasOperate(seat) {
-		operates.AddOperate(OperateTianTing)
-	} else {
-		operates.AddOperate(OperateTing)
-	}
 }
 
 func (p *Play) isKonAfterPon(tile int32) bool {
@@ -316,4 +280,20 @@ func (p *Play) isKonAfterPon(tile int32) bool {
 	}
 	action := p.history[len(p.history)-1]
 	return action.Operate == OperatePon && action.Tile == tile
+}
+
+func (p *Play) checkMustHu(seat int32) bool {
+	if p.PlayConf.MustHu {
+		return true
+	}
+
+	if !p.PlayConf.MustHuIfOnlyLai {
+		return false
+	}
+	playData := p.playData[seat]
+
+	if playData.isAllLai() || playData.call && slices.Contains(p.tilesLai, playData.handTiles[len(playData.handTiles)-1]) {
+		return true
+	}
+	return false
 }

@@ -10,7 +10,6 @@ type PlayConf struct {
 	MustHuIfOnlyLai      bool  // 全赖子必胡
 	CanotDiscardLai      bool  // 赖子不可打出
 	TianTing             bool  // 有天听玩法
-	EnableCall           bool  // 有报叫玩法
 	BuKonPass            bool  // 补杠区分过手杠
 	ZhiKonAfterPon       bool  // 碰后补杠算直杠
 	MinMultipleLimit     int64 // 起胡倍数

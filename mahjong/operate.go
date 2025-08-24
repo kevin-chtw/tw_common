@@ -1,8 +1,8 @@
 package mahjong
 
 const (
-	OperateNone     = -1
-	OperatePass     = 0         //过
+	OperateNone     = -1        // 无操作
+	OperatePass     = 0         // 过
 	OperateChow     = 1 << iota // 吃
 	OperatePon                  // 碰
 	OperateKon                  // 杠
@@ -13,6 +13,8 @@ const (
 	OperateDraw                 // 摸牌
 	OperateTianTing             // 天听
 	OperateFlower               // 换花
+	OperateChowTing             // 吃听
+	OperatePonTing              // 碰听
 )
 
 var OperateNames = map[int]string{
@@ -27,6 +29,8 @@ var OperateNames = map[int]string{
 	OperateDraw:     "Draw",
 	OperateTianTing: "TianTing",
 	OperateFlower:   "Flower",
+	OperateChowTing: "ChowTing",
+	OperatePonTing:  "PonTing",
 }
 
 var OperateIDs = map[string]int{
@@ -41,6 +45,8 @@ var OperateIDs = map[string]int{
 	"Draw":     OperateDraw,
 	"TianTing": OperateTianTing,
 	"Flower":   OperateFlower,
+	"ChowTing": OperateChowTing,
+	"PonTing":  OperatePonTing,
 }
 
 type Operates struct {
