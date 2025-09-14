@@ -6,9 +6,6 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
-type IPlay interface {
-}
-
 type IExtraHuTypes interface {
 	SelfExtraFans() []int32
 	PaoExtraFans() []int32
@@ -55,12 +52,15 @@ func (p *Play) RegisterWaitCheck(cks ...WaitChecker) {
 	p.waitcheckers = append(p.waitcheckers, cks...)
 }
 
-func (p *Play) Initialize() {
+func (p *Play) Initialize(pdfn func(int32) *PlayData) {
 	lgd := p.getLastGameData()
 	p.banker = lgd.banker
 	p.curSeat = p.banker
 	p.dealer.Initialize()
 	p.history = make([]Action, 0)
+	for i := range p.game.GetPlayerCount() {
+		p.playData[i] = pdfn(int32(i))
+	}
 }
 
 func (p *Play) GetDealer() *Dealer {

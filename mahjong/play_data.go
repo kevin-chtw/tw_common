@@ -45,7 +45,7 @@ type PlayData struct {
 	drawRate        int
 }
 
-func NewPlayData(seat int) *PlayData {
+func NewPlayData(seat int32) *PlayData {
 	return &PlayData{
 		callDataMap:  make(map[int]map[int]int),
 		handTiles:    make([]int32, 0),

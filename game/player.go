@@ -28,6 +28,7 @@ func NewPlayer(id string) *Player {
 	return &Player{
 		id:     id,
 		Status: PlayerStatusUnEnter,
+		online: true,
 	}
 }
 

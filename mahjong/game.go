@@ -7,7 +7,6 @@ import (
 )
 
 type IGame interface {
-	CreatePlay() IPlay
 	OnStart()
 	OnReqMsg(seat int32, data []byte) error
 }
@@ -22,8 +21,6 @@ type Game struct {
 	players     []*Player
 	increasedID int32   // 当前请求ID
 	requestIDs  []int32 // 记录每个玩家的请求ID
-
-	Play IPlay
 }
 
 func NewGame(subGame IGame, t *game.Table) *Game {
@@ -36,11 +33,11 @@ func NewGame(subGame IGame, t *game.Table) *Game {
 		increasedID: 1,
 		requestIDs:  make([]int32, t.GetPlayerCount()),
 	}
+
 	g.rule.LoadRule(t.GetGameRule(), Service.GetDefaultRules())
 	for i := int32(0); i < t.GetPlayerCount(); i++ {
 		g.players[i] = NewPlayer(g, t.GetGamePlayer(i))
 	}
-	g.Play = subGame.CreatePlay()
 	return g
 }
 
@@ -80,10 +77,6 @@ func (g *Game) GetTimer() *Timer {
 
 func (g *Game) GetRule() *Rule {
 	return g.rule
-}
-
-func (g *Game) GetPlay() IPlay {
-	return g.Play
 }
 
 func (g *Game) GetPlayer(seat int32) *Player {

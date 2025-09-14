@@ -3,6 +3,7 @@ package game
 import (
 	"strconv"
 	"sync"
+	"time"
 
 	pitaya "github.com/topfreegames/pitaya/v3/pkg"
 )
@@ -12,13 +13,30 @@ type TableManager struct {
 	mu     sync.RWMutex
 	tables map[string]*Table // tableID -> Table
 	app    pitaya.Pitaya
+	ticker *time.Ticker
 }
 
 // NewTableManager 创建游戏桌管理器
 func NewTableManager(app pitaya.Pitaya) *TableManager {
-	return &TableManager{
+	t := &TableManager{
 		tables: make(map[string]*Table),
 		app:    app,
+		ticker: time.NewTicker(time.Second),
+	}
+	go func() {
+		for range t.ticker.C {
+			t.tick()
+		}
+	}()
+
+	return t
+}
+
+func (t *TableManager) tick() {
+	t.mu.RLock()
+	defer t.mu.RUnlock()
+	for _, table := range t.tables {
+		table.tick()
 	}
 }
 

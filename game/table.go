@@ -9,6 +9,7 @@ import (
 	"github.com/kevin-chtw/tw_proto/cproto"
 	"github.com/kevin-chtw/tw_proto/sproto"
 	"github.com/sirupsen/logrus"
+
 	pitaya "github.com/topfreegames/pitaya/v3/pkg"
 	"github.com/topfreegames/pitaya/v3/pkg/logger"
 	"google.golang.org/protobuf/encoding/protojson"
@@ -79,24 +80,12 @@ func NewTable(gameID, matchID, tableID int32, app pitaya.Pitaya) *Table {
 		historyMsg:    make(map[string][]*cproto.GameAck),
 	}
 
-	// 启动定时器
-	t.ticker = time.NewTicker(time.Second)
-	go func() {
-		for {
-			select {
-			case <-t.ticker.C:
-				t.onTick()
-			case <-t.done:
-				return
-			}
-		}
-	}()
-
+	t.init()
 	return t
 }
 
 func TypeUrl(src proto.Message) string {
-	any, err := anypb.New(&cproto.CreateRoomReq{})
+	any, err := anypb.New(src)
 	if err != nil {
 		logrus.Error(err)
 		return ""
@@ -104,7 +93,7 @@ func TypeUrl(src proto.Message) string {
 	return any.GetTypeUrl()
 }
 
-func (t *Table) Init() {
+func (t *Table) init() {
 	t.handlers[TypeUrl(&cproto.EnterGameReq{})] = t.handleEnterGame
 	t.handlers[TypeUrl(&cproto.TableMsgReq{})] = t.handleTableMsg
 }
@@ -114,7 +103,7 @@ func (t *Table) OnPlayerMsg(ctx context.Context, player *Player, req *cproto.Gam
 	if req == nil || req.Req == nil {
 		return errors.New("invalid request")
 	}
-
+	logger.Log.Infof("Received player message: %v", req.Req.TypeUrl)
 	if handler, ok := t.handlers[req.Req.TypeUrl]; ok {
 		return handler(player, req)
 	}
@@ -128,11 +117,14 @@ func (t *Table) handleEnterGame(player *Player, _ *cproto.GameReq) error {
 		return errors.New("player not on table")
 	}
 
-	// 添加玩家到桌中
-	t.players[player.id] = player
-	t.broadcastTablePlayer(player)
-	t.notifyTablePlayer(player)
-	player.Status = PlayerStatusEnter
+	if player.Status == PlayerStatusEnter {
+		t.notifyTablePlayer(player, true)
+		t.sendHisMsges(player)
+	} else {
+		player.Status = PlayerStatusEnter
+		t.broadcastTablePlayer(player)
+		t.notifyTablePlayer(player, false)
+	}
 
 	// 检查是否满足开赛条件
 	if t.isAllPlayersReady() {
@@ -166,19 +158,20 @@ func (t *Table) broadcastTablePlayer(player *Player) {
 	}
 	msg := t.newMsg(ack)
 	t.broadcast(msg)
-	logrus.Infof("Player %s added to table %d", player.id, t.tableID)
+	logger.Log.Infof("Player %s added to table %d", player.id, t.tableID)
 }
 
-func (t *Table) notifyTablePlayer(player *Player) {
+func (t *Table) notifyTablePlayer(player *Player, resume bool) {
 	for _, p := range t.players {
-		if p.id != player.id {
-			ack := &cproto.TablePlayerAck{
-				Playerid: p.id,
-				Seatnum:  p.Seat,
-			}
-			msg := t.newMsg(ack)
-			t.sendMsg(msg, []string{player.id})
+		if p.id == player.id && !resume {
+			continue
 		}
+		ack := &cproto.TablePlayerAck{
+			Playerid: p.id,
+			Seatnum:  p.Seat,
+		}
+		msg := t.newMsg(ack)
+		t.sendMsg(msg, []string{player.id})
 	}
 }
 
@@ -204,11 +197,14 @@ func (t *Table) isOnTable(playerID string) bool {
 }
 
 func (t *Table) isAllPlayersReady() bool {
-	for _, player := range t.players {
-		if player.Status != PlayerStatusReady {
-			return false
-		}
+	if len(t.players) != int(t.playerCount) {
+		return false
 	}
+	// for _, player := range t.players {
+	// 	if player.Status != PlayerStatusReady {
+	// 		return false
+	// 	}
+	// }
 	return true
 }
 
@@ -277,10 +273,6 @@ func (t *Table) HandleNetState(ctx context.Context, msg proto.Message) (proto.Me
 		return nil, errors.New("player online status not changed")
 	}
 	player.online = req.Online
-	if req.Online {
-		t.notifyTablePlayer(player)
-		t.sendHisMsges(player)
-	}
 
 	if t.game != nil {
 		t.game.OnNetChange(player, req.Online)
@@ -322,7 +314,7 @@ func (t *Table) Send2Player(ack proto.Message, seat int32) {
 		Msg: data,
 	}
 	msg := t.newMsg(tablemsg)
-	if seat == -1 {
+	if seat == SeatAll {
 		t.broadcast(msg)
 	} else {
 		p := t.GetGamePlayer(seat)
@@ -363,7 +355,7 @@ func (t *Table) GetScoreBase() int64 {
 	return int64(t.scoreBase)
 }
 
-func (t *Table) onTick() {
+func (t *Table) tick() {
 	t.gameMutex.Lock()
 	defer t.gameMutex.Unlock()
 	if t.game != nil {
@@ -382,6 +374,7 @@ func (t *Table) broadcast(msg *cproto.GameAck) {
 }
 
 func (t *Table) sendMsg(msg *cproto.GameAck, uids []string) {
+	logger.Log.Infof("broadcast game message to player %v: %v", uids, msg)
 	t.addHisMsg(uids, msg)
 	if m, err := t.app.SendPushToUsers(t.app.GetServer().Type, msg, uids, "proxy"); err != nil {
 		logger.Log.Errorf("send game message to player %v failed: %v", uids, err)
@@ -404,6 +397,11 @@ func (t *Table) addHisMsg(uids []string, gameAck *cproto.GameAck) {
 func (t *Table) sendHisMsges(player *Player) {
 	t.historyMutex.Lock()
 	defer t.historyMutex.Unlock()
+
+	if len(t.historyMsg[player.id]) == 0 {
+		return
+	}
+
 	t.app.SendPushToUsers(t.app.GetServer().Type, t.newMsg(&cproto.HisBeginAck{}), []string{player.id}, "proxy")
 	if msgs, exists := t.historyMsg[player.id]; exists {
 		for _, msg := range msgs {
