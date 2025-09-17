@@ -139,7 +139,7 @@ func (p *Play) Discard(tile int32) {
 	}
 
 	if tile == TileNull {
-		panic("all tingyong in hand, cannot discard")
+		tile = playData.handTiles[len(playData.handTiles)-1]
 	}
 
 	playData.Discard(tile)

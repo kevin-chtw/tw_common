@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 	"sync"
-	"time"
 
 	"github.com/kevin-chtw/tw_proto/cproto"
 	"github.com/kevin-chtw/tw_proto/sproto"
@@ -49,12 +48,11 @@ type Table struct {
 	matchType     string           //
 	scoreBase     int64            // 分数基数
 	gameCount     int32            // 游戏局数
+	curGameCount  int32            // 当前局数
 	playerCount   int32            // 玩家数量
 	property      string           // 游戏配置
 	fdproperty    map[string]int32 // 房间属性
 	lastHandData  any
-	ticker        *time.Ticker // 定时器
-	done          chan bool    // 停止信号
 	handlers      map[string]func(*Player, *cproto.GameReq) error
 	gameMutex     sync.Mutex // 保护game的对象锁
 	game          IGame      // 游戏逻辑处理接口
@@ -68,12 +66,12 @@ func NewTable(gameID, matchID, tableID int32, app pitaya.Pitaya) *Table {
 		gameID:        gameID,
 		matchID:       matchID,
 		tableID:       tableID,
+		curGameCount:  0,
 		matchServerId: "",
 		players:       make(map[string]*Player),
 		status:        TableStatusPreparing,
 		fdproperty:    make(map[string]int32),
 		app:           app,
-		done:          make(chan bool),
 		handlers:      make(map[string]func(*Player, *cproto.GameReq) error),
 		gameMutex:     sync.Mutex{},
 		game:          nil,
@@ -128,13 +126,18 @@ func (t *Table) handleEnterGame(player *Player, _ *cproto.GameReq) error {
 
 	// 检查是否满足开赛条件
 	if t.isAllPlayersReady() {
-		t.status = TableStatusPlaying
-		t.gameMutex.Lock()
-		defer t.gameMutex.Unlock()
-		t.game = CreateGame(t.gameID, t)
-		t.game.OnGameBegin()
+		t.gamebegin()
 	}
 	return nil
+}
+
+func (t *Table) gamebegin() {
+	t.status = TableStatusPlaying
+	t.curGameCount++
+	t.gameMutex.Lock()
+	defer t.gameMutex.Unlock()
+	t.game = CreateGame(t.gameID, t)
+	t.game.OnGameBegin()
 }
 
 func (t *Table) handleTableMsg(player *Player, req *cproto.GameReq) error {
@@ -200,11 +203,11 @@ func (t *Table) isAllPlayersReady() bool {
 	if len(t.players) != int(t.playerCount) {
 		return false
 	}
-	// for _, player := range t.players {
-	// 	if player.Status != PlayerStatusReady {
-	// 		return false
-	// 	}
-	// }
+	for _, player := range t.players {
+		if player.Status == PlayerStatusUnEnter {
+			return false
+		}
+	}
 	return true
 }
 
@@ -243,22 +246,7 @@ func (t *Table) HandleCancelTable(ctx context.Context, msg proto.Message) (proto
 	if t.status == TableStatusPlaying {
 		return nil, errors.New("cannot cancel a playing table")
 	}
-	for _, player := range t.players {
-		playerManager.Delete(player.id) // 从玩家管理器中删除玩家
-	}
-	tableManager.Delete(t.matchID, t.tableID) // 从桌子管理器中删除
-
-	// 停止定时器
-	if t.ticker != nil {
-		t.ticker.Stop()
-		t.done <- true
-	}
-
-	// 清理game对象
-	t.gameMutex.Lock()
-	t.game = nil
-	t.gameMutex.Unlock()
-
+	t.gameOver()
 	return &sproto.EmptyAck{}, nil
 }
 
@@ -269,6 +257,7 @@ func (t *Table) HandleNetState(ctx context.Context, msg proto.Message) (proto.Me
 		return nil, errors.New("player not found")
 	}
 
+	logger.Log.Infof("Player %s online status changed to %v", req.Uid, req.Online)
 	if player.online == req.Online {
 		return nil, errors.New("player online status not changed")
 	}
@@ -283,8 +272,37 @@ func (t *Table) HandleNetState(ctx context.Context, msg proto.Message) (proto.Me
 
 func (t *Table) NotifyGameOver() {
 	t.status = TableStatusFinished
-	result := &sproto.TableResultAck{}
+	result := &sproto.GameResultAck{
+		CurGameCount: t.curGameCount,
+		IsOver:       false,
+		Players:      make([]*sproto.PlayerResult, 0),
+	}
+
+	for _, p := range t.players {
+		result.Players = append(result.Players, &sproto.PlayerResult{
+			Playerid: p.id,
+			Score:    p.Score,
+		})
+	}
 	t.Send2Match(result)
+
+	if t.curGameCount >= t.gameCount {
+		t.gameOver()
+	} else {
+		t.gamebegin()
+	}
+}
+
+func (t *Table) gameOver() {
+	for _, player := range t.players {
+		playerManager.Delete(player.id) // 从玩家管理器中删除玩家
+	}
+	tableManager.Delete(t.matchID, t.tableID) // 从桌子管理器中删除
+
+	// 清理game对象
+	t.gameMutex.Lock()
+	t.game = nil
+	t.gameMutex.Unlock()
 }
 
 func (t *Table) Send2Match(msg proto.Message) {
@@ -303,6 +321,7 @@ func (t *Table) Send2Match(msg proto.Message) {
 	if err := t.app.RPCTo(context.Background(), t.matchServerId, t.matchType+".game.message", req, ack); err != nil {
 		logger.Log.Error(err.Error())
 	}
+
 }
 
 func (t *Table) Send2Player(ack proto.Message, seat int32) {
@@ -347,7 +366,7 @@ func (t *Table) GetPlayerCount() int32 {
 	return t.playerCount
 }
 
-func (t *Table) GetGameRule() string {
+func (t *Table) GetProperty() string {
 	return t.property
 }
 
@@ -364,9 +383,9 @@ func (t *Table) tick() {
 }
 
 func (t *Table) broadcast(msg *cproto.GameAck) {
-	uids := make([]string, 0, len(t.players))
+	uids := make([]string, 0)
 	for _, player := range t.players {
-		if player.online && player.Status != PlayerStatusUnEnter {
+		if player.Status != PlayerStatusUnEnter {
 			uids = append(uids, player.id)
 		}
 	}
@@ -374,16 +393,17 @@ func (t *Table) broadcast(msg *cproto.GameAck) {
 }
 
 func (t *Table) sendMsg(msg *cproto.GameAck, uids []string) {
-	logger.Log.Infof("broadcast game message to player %v: %v", uids, msg)
+	logger.Log.Infof("player %v: %v", uids, msg)
 	t.addHisMsg(uids, msg)
-	if m, err := t.app.SendPushToUsers(t.app.GetServer().Type, msg, uids, "proxy"); err != nil {
-		logger.Log.Errorf("send game message to player %v failed: %v", uids, err)
-	} else {
-		logger.Log.Debugf("send game message to player %v success: %v", uids, m)
+	if _, err := t.app.SendPushToUsers(t.app.GetServer().Type, msg, uids, "proxy"); err != nil {
+		logger.Log.Errorf("player %v failed: %v", uids, err)
 	}
 }
 
 func (t *Table) addHisMsg(uids []string, gameAck *cproto.GameAck) {
+	if gameAck.Ack.TypeUrl != TypeUrl(&cproto.TableMsgAck{}) {
+		return
+	}
 	t.historyMutex.Lock()
 	defer t.historyMutex.Unlock()
 	for _, uid := range uids {

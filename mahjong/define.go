@@ -24,7 +24,7 @@ type TingBase struct {
 }
 
 const (
-	TileNull int32 = 0
+	TileNull int32 = -1
 	TileBack int32 = -1
 	SeatNull int32 = -1
 )

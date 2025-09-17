@@ -34,7 +34,7 @@ func NewGame(subGame IGame, t *game.Table) *Game {
 		requestIDs:  make([]int32, t.GetPlayerCount()),
 	}
 
-	g.rule.LoadRule(t.GetGameRule(), Service.GetDefaultRules())
+	g.rule.LoadRule(t.GetProperty(), Service.GetDefaultRules())
 	for i := int32(0); i < t.GetPlayerCount(); i++ {
 		g.players[i] = NewPlayer(g, t.GetGamePlayer(i))
 	}

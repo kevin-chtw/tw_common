@@ -33,15 +33,15 @@ func (c *Rule) ToString() string {
 	return builder.String()
 }
 
-func (c *Rule) LoadRule(rule string, defalt []int) {
+func (c *Rule) LoadRule(property string, defalt []int) {
 	c.values = make([]int, len(defalt))
 	copy(c.values, defalt)
 
-	parts := strings.Split(rule, ",")
-	c.values = make([]int, len(parts))
-
-	for i, part := range parts {
-		if val, err := strconv.Atoi(strings.TrimSpace(part)); err != nil {
+	parts := strings.Split(property, ",")
+	for i, p := range parts {
+		if val, err := strconv.Atoi(strings.TrimSpace(p)); err != nil {
+			continue
+		} else if i < len(c.values) {
 			c.values[i] = val
 		}
 	}

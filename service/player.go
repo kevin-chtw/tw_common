@@ -38,5 +38,5 @@ func (p *Player) Message(ctx context.Context, req *cproto.GameReq) (*cproto.Game
 	if err := player.HandleMessage(ctx, req); err != nil {
 		return nil, err
 	}
-	return nil, nil
+	return &cproto.GameAck{}, nil
 }
