@@ -97,7 +97,7 @@ func (p *Play) GetPlayData(seat int32) *PlayData {
 }
 
 func (p *Play) FetchSelfOperates() *Operates {
-	opt := &Operates{}
+	opt := &Operates{Value: OperateDiscard}
 
 	tips := make([]int, 0)
 	for _, v := range p.selfCheckers {
@@ -112,7 +112,7 @@ func (p *Play) FetchSelfOperates() *Operates {
 }
 
 func (p *Play) FetchWaitOperates(seat int32) *Operates {
-	opt := &Operates{}
+	opt := &Operates{Value: OperatePass}
 	if p.game.GetPlayer(seat).isOut {
 		return opt
 	}

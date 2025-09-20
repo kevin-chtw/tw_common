@@ -1,20 +1,20 @@
 package mahjong
 
 const (
-	OperateNone     = -1        // 无操作
-	OperatePass     = 0         // 过
-	OperateChow     = 1 << iota // 吃
-	OperatePon                  // 碰
-	OperateKon                  // 杠
-	OperateTing                 // 听
-	OperateHu                   // 胡
-	OperateDiscard              // 出牌
-	OperateExchange             // 换牌
-	OperateDraw                 // 摸牌
-	OperateTianTing             // 天听
-	OperateFlower               // 换花
-	OperateChowTing             // 吃听
-	OperatePonTing              // 碰听
+	OperateNone     = 0               // 无操作
+	OperatePass     = 1 << (iota - 1) // 过  1<<0 = 1
+	OperateChow                       // 吃  1<<1 = 2
+	OperatePon                        // 碰  1<<2 = 4
+	OperateKon                        // 杠  1<<3 = 8
+	OperateTing                       // 听  1<<4 = 16
+	OperateHu                         // 胡  1<<5 = 32
+	OperateDiscard                    // 出牌  1<<6 = 64
+	OperateExchange                   // 换牌  1<<7 = 128
+	OperateDraw                       // 摸牌  1<<8 = 256
+	OperateTianTing                   // 天听  1<<9 = 512
+	OperateFlower                     // 换花  1<<10 = 1024
+	OperateChowTing                   // 吃听  1<<11 = 2048
+	OperatePonTing                    // 碰听  1<<12 = 4096
 )
 
 var OperateNames = map[int]string{

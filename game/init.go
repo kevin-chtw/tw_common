@@ -11,17 +11,17 @@ const (
 var playerManager *PlayerManager
 var tableManager *TableManager
 
-type NewGame func(*Table) IGame
+type NewGame func(*Table, int32) IGame
 
-var reg = make(map[int32]NewGame)
+var fn = make(map[string]NewGame)
 
-func Register(id int32, f NewGame) {
-	reg[id] = f
+func Register(serverType string, f NewGame) {
+	fn[serverType] = f
 }
 
-func CreateGame(id int32, t *Table) IGame {
-	if f, ok := reg[id]; ok {
-		return f(t)
+func CreateGame(serverType string, t *Table, id int32) IGame {
+	if f, ok := fn[serverType]; ok {
+		return f(t, id)
 	}
 	return nil
 }

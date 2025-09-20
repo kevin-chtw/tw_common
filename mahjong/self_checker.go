@@ -9,7 +9,6 @@ type KonChecker struct{}  // 杠检查器
 type CallChecker struct{} // 听检查器
 
 func (c *HuChecker) Check(play *Play, opt *Operates, tips []int) []int {
-	opt.AddOperate(OperateDiscard)
 	if play.IsAfterPon() {
 		return tips
 	}

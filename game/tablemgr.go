@@ -49,7 +49,7 @@ func (t *TableManager) Get(matchID, tableID int32) *Table {
 }
 
 // LoadOrStore 加载或存储游戏桌
-func (t *TableManager) LoadOrStore(gameId, matchId, tableId int32) *Table {
+func (t *TableManager) LoadOrStore(matchId, tableId int32) *Table {
 	key := getTableKey(matchId, tableId)
 
 	t.mu.Lock()
@@ -61,7 +61,7 @@ func (t *TableManager) LoadOrStore(gameId, matchId, tableId int32) *Table {
 	}
 
 	// 创建新表
-	table := NewTable(gameId, matchId, tableId, t.app)
+	table := NewTable(matchId, tableId, t.app)
 	t.tables[key] = table
 	return table
 }

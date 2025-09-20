@@ -52,7 +52,7 @@ func (m *Match) Message(ctx context.Context, req *sproto.Match2GameReq) (*sproto
 
 	table := game.GetTableManager().Get(req.Matchid, req.Tableid)
 	if req.Req.TypeUrl == utils.TypeUrl(&sproto.AddTableReq{}) {
-		table = game.GetTableManager().LoadOrStore(req.Gameid, req.Matchid, req.Tableid)
+		table = game.GetTableManager().LoadOrStore(req.Matchid, req.Tableid)
 	}
 	if table == nil {
 		return nil, fmt.Errorf("table not found for match %d, table %d", req.Matchid, req.Tableid)
@@ -74,7 +74,6 @@ func (m *Match) newMatch2GameAck(req *sproto.Match2GameReq, ack proto.Message) (
 		return nil, err
 	}
 	return &sproto.Match2GameAck{
-		Gameid:  req.Gameid,
 		Matchid: req.GetMatchid(),
 		Tableid: req.GetTableid(),
 		Ack:     data,

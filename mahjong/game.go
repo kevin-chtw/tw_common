@@ -14,6 +14,7 @@ type IGame interface {
 type Game struct {
 	IGame
 	*game.Table
+	id          int32
 	timer       *Timer
 	CurState    IState
 	nextState   IState
@@ -23,10 +24,11 @@ type Game struct {
 	requestIDs  []int32 // 记录每个玩家的请求ID
 }
 
-func NewGame(subGame IGame, t *game.Table) *Game {
+func NewGame(subGame IGame, t *game.Table, id int32) *Game {
 	g := &Game{
 		IGame:       subGame,
 		Table:       t,
+		id:          id,
 		timer:       NewTimer(),
 		rule:        NewRule(),
 		players:     make([]*Player, t.GetPlayerCount()),
@@ -62,6 +64,10 @@ func (g *Game) OnPlayerMsg(player *game.Player, data []byte) error {
 func (g *Game) OnGameTimer() {
 	g.timer.OnTick()
 	g.enterNextState()
+}
+
+func (g *Game) OnGameOver() {
+	g.Table.NotifyGameOver(g.id)
 }
 
 func (g *Game) OnNetChange(player *game.Player, offline bool) {

@@ -20,11 +20,11 @@ func (f *Formatter) Format(entry *logrus.Entry) ([]byte, error) {
 	level := strings.ToLower(entry.Level.String())
 
 	file, line, funcName := entry.Caller.File, entry.Caller.Line, entry.Caller.Function
-	fileName := strings.Split(file, "/")[len(strings.Split(file, "/"))-1]
+	//fileName := strings.Split(file, "/")[len(strings.Split(file, "/"))-1]
 	funcName = strings.Split(funcName, ".")[len(strings.Split(funcName, "."))-1]
 
 	// 格式化日志
-	logMessage := fmt.Sprintf("%s [%s] %s:%d %s %s\n", timestamp, level, fileName, line, funcName, entry.Message)
+	logMessage := fmt.Sprintf("%s [%s] %s:%d %s %s\n", timestamp, level, file, line, funcName, entry.Message)
 
 	return []byte(logMessage), nil
 }

@@ -61,18 +61,18 @@ var SameTileCountByColor = [ColorEnd]int{4, 4, 4, 4, 4, 1, 1, 0}
 var SEQ_BEGIN_BY_COLOR = [ColorEnd]int{0, 9, 18, 27, 31, 34, 38, 42}
 
 var (
-	TileHun    int32 = int32((int(ColorHun) << 8) | (0 << 4))
-	TileInf    int32 = int32((int(ColorEnd) << 8) | (0 << 4)) // 无效牌
-	TileZhong  int32 = int32((int(ColorDragon) << 8) | (0 << 4))
-	TileFa     int32 = int32((int(ColorDragon) << 8) | (1 << 4))
-	TileBai    int32 = int32((int(ColorDragon) << 8) | (2 << 4))
-	TileDong   int32 = int32((int(ColorWind) << 8) | (0 << 4))
-	TileNan    int32 = int32((int(ColorWind) << 8) | (1 << 4))
-	TileXi     int32 = int32((int(ColorWind) << 8) | (2 << 4))
-	TileBei    int32 = int32((int(ColorWind) << 8) | (3 << 4))
-	TileYaoJi  int32 = int32((int(ColorBamboo) << 8) | (0 << 4))
-	TileFlower int32 = int32((int(ColorFlower) << 8) | (0 << 4))
-	TileSpring int32 = int32((int(ColorSeason) << 8) | (0 << 4))
+	TileHun    int32 = MakeTile(ColorHun, 0)    // 混子
+	TileInf    int32 = MakeTile(ColorEnd, 0)    // 无效牌
+	TileZhong  int32 = MakeTile(ColorDragon, 0) // 中
+	TileFa     int32 = MakeTile(ColorDragon, 1) // 发
+	TileBai    int32 = MakeTile(ColorDragon, 2) // 白
+	TileDong   int32 = MakeTile(ColorWind, 0)   // 东
+	TileNan    int32 = MakeTile(ColorWind, 1)   // 南
+	TileXi     int32 = MakeTile(ColorWind, 2)   // 西
+	TileBei    int32 = MakeTile(ColorWind, 3)   // 北
+	TileYaoJi  int32 = MakeTile(ColorBamboo, 0) // 幺鸡
+	TileFlower int32 = MakeTile(ColorFlower, 0) // 花
+	TileSpring int32 = MakeTile(ColorSeason, 0) // 春
 )
 
 type EScoreType int
@@ -175,8 +175,9 @@ func GetNextSeat(seat, step, seatCount int32) int32 {
 	return (seat + step) % seatCount
 }
 
-func MakeTile(color EColor, point int, flag int) int32 {
-	return int32((int(color) << 8) | (point << 4) | flag)
+func MakeTile(color EColor, point int) int32 {
+	// 默认flag为1
+	return int32((int(color) << 8) | (point << 4) | 1)
 }
 
 func TileColor(tile int32) EColor {
@@ -243,7 +244,7 @@ func NextTileInSameColor(tile int32, step int) int32 {
 	count := PointCountByColor[color]
 	step %= count
 	point := (TilePoint(tile) + step + count) % count
-	return MakeTile(color, point, 0) // 默认flag为0
+	return MakeTile(color, point)
 }
 
 type Action struct {

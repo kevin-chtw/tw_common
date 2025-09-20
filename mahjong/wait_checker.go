@@ -113,7 +113,7 @@ func (c *ChowTingChecker) Check(play *Play, seat int32, opt *Operates, tips []in
 	for p := leftPoint; p < leftPoint+3; p++ {
 		tiles := make([]int32, 0)
 		for i := range 3 {
-			tile := MakeTile(color, p+i, 0)
+			tile := MakeTile(color, p+i)
 			if tile != play.curTile && slices.Contains(playData.handTiles, tile) {
 				huData.TilesInHand = RemoveElements(huData.TilesInHand, tile, 1)
 				tiles = append(tiles, tile)

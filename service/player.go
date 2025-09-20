@@ -8,7 +8,6 @@ import (
 	"github.com/kevin-chtw/tw_proto/cproto"
 	pitaya "github.com/topfreegames/pitaya/v3/pkg"
 	"github.com/topfreegames/pitaya/v3/pkg/component"
-	"github.com/topfreegames/pitaya/v3/pkg/logger"
 )
 
 // Player 独立的玩家服务
@@ -25,7 +24,6 @@ func NewPlayer(app pitaya.Pitaya) *Player {
 }
 
 func (p *Player) Message(ctx context.Context, req *cproto.GameReq) (*cproto.GameAck, error) {
-	logger.Log.Infof("Received player message: %v", req)
 	userID := p.app.GetSessionFromCtx(ctx).UID()
 	if userID == "" {
 		return nil, errors.New("user ID not found in session")
