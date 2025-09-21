@@ -1,14 +1,5 @@
 package mahjong
 
-// 分数类型
-type ScoreType int
-
-const (
-	ScoreTypeNormal ScoreType = iota
-	ScoreTypeBonus
-	ScoreTypePenalty
-)
-
 // 手牌风格类型
 const (
 	HandNone            EHandStyle = iota // 无特殊风格
@@ -75,13 +66,20 @@ var (
 	TileSpring int32 = MakeTile(ColorSeason, 0) // 春
 )
 
-type EScoreType int
+type ScoreReason int //算分原因
 
 const (
-	ScoreTypeNatural EScoreType = iota
-	ScoreTypeMinScore
-	ScoreTypePositiveScore
-	ScoreTypeJustWin
+	ScoreReasonHu   ScoreReason = iota // 胡
+	ScoreReasonGang                    // 杠
+)
+
+type ScoreType int //算分方式
+
+const (
+	ScoreTypeNatural  ScoreType = iota // 自然分
+	ScoreTypeMinScore                  // 积分最小化
+	ScoreTypePositive                  // 超出玩家带入的输分由系统支出
+	ScoreTypeJustWin                   // 只赢不输
 )
 
 type EHandStyle int

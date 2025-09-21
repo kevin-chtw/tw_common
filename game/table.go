@@ -112,18 +112,19 @@ func (t *Table) handleEnterGame(player *Player, _ *cproto.GameReq) error {
 
 	// 检查是否满足开赛条件
 	if t.isAllPlayersReady() {
-		t.gamebegin()
+		t.gameBegin()
 	}
 	return nil
 }
 
-func (t *Table) gamebegin() {
+func (t *Table) gameBegin() {
 	t.gameMutex.Lock()
 	defer t.gameMutex.Unlock()
 	t.curGameCount++
 	// 重置gameOnce以允许新一局游戏的NotifyGameOver执行
 	t.gameOnce = sync.Once{}
 	t.sendGameBegin()
+	t.historyMsg = make(map[string][]*cproto.GameAck)
 	t.game = CreateGame(t.app.GetServer().Type, t, t.curGameCount)
 	t.game.OnGameBegin()
 }
@@ -295,7 +296,7 @@ func (t *Table) NotifyGameOver(gameId int32) {
 		if t.curGameCount >= t.gameCount {
 			go t.gameOver()
 		} else {
-			go t.gamebegin()
+			go t.gameBegin()
 		}
 	})
 }
@@ -401,19 +402,17 @@ func (t *Table) broadcast(msg *cproto.GameAck) {
 }
 
 func (t *Table) sendMsg(msg *cproto.GameAck, uids []string) {
-	if msg.Ack.TypeUrl != TypeUrl(&cproto.TableMsgAck{}) {
+	if msg.Ack.TypeUrl == TypeUrl(&cproto.TableMsgAck{}) {
+		t.addHisMsg(uids, msg)
+	} else {
 		logger.Log.Infof("player %v msg %v", uids, msg)
 	}
-	t.addHisMsg(uids, msg)
 	if _, err := t.app.SendPushToUsers(t.app.GetServer().Type, msg, uids, "proxy"); err != nil {
 		logger.Log.Errorf("player %v failed: %v", uids, err)
 	}
 }
 
 func (t *Table) addHisMsg(uids []string, gameAck *cproto.GameAck) {
-	if gameAck.Ack.TypeUrl != TypeUrl(&cproto.TableMsgAck{}) {
-		return
-	}
 	t.historyMutex.Lock()
 	defer t.historyMutex.Unlock()
 	for _, uid := range uids {

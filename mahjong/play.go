@@ -197,6 +197,22 @@ func (p *Play) Zimo() (multiples []int64) {
 	return
 }
 
+func (p *Play) PaoHu(huSeats []int32) []int64 {
+	p.playData[p.curSeat].RemoveOutTile()
+	multiples := make([]int64, p.game.GetPlayerCount())
+	for _, seat := range huSeats {
+		huResult := p.huResult[seat]
+		multi := p.PlayConf.GetRealMultiple(huResult.TotalMuti)
+		multiples[p.curSeat] -= multi
+		if !p.game.GetPlayer(seat).IsOut() {
+			multiples[seat] = +multi
+			p.addHistory(p.curSeat, p.curTile, OperateHu, 0)
+		}
+	}
+	p.huSeats = append(p.huSeats, huSeats...)
+	return multiples
+}
+
 func (p *Play) Draw() int32 {
 	tile := p.dealer.DrawTile()
 	if tile == TileNull {
