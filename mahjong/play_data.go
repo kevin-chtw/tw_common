@@ -478,7 +478,7 @@ func (p *PlayData) canKonAfterCall(tile int32, konType KonType, rule *Rule) bool
 		hudata.TilesInHand = hudata.TilesInHand[:len(hudata.TilesInHand)-1]
 	}
 	call0 := Service.CheckCall(hudata, rule)
-	hudata.TilesInHand = slices.DeleteFunc(hudata.TilesInHand, func(v int32) bool { return v == tile })
+	hudata.TilesInHand = RemoveAllElement(hudata.TilesInHand, tile)
 	call1 := Service.CheckCall(hudata, rule)
 	if len(call0) != 1 || len(call1) != 1 {
 		return false
