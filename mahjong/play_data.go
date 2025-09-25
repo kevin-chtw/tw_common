@@ -1,6 +1,10 @@
 package mahjong
 
-import "slices"
+import (
+	"slices"
+
+	"github.com/topfreegames/pitaya/v3/pkg/logger"
+)
 
 type Group struct {
 	Tile  int32
@@ -68,9 +72,14 @@ func (p *PlayData) GetCallDataMap() map[int]map[int]int {
 	return p.callDataMap
 }
 
-func (p *PlayData) Discard(tile int32) {
+func (p *PlayData) Discard(tile int32) bool {
+	if !slices.Contains(p.handTiles, tile) {
+		return false
+	}
 	p.handTiles = RemoveElements(p.handTiles, tile, 1)
+	logger.Log.Info(p.handTiles)
 	p.PutOutTile(tile)
+	return true
 }
 
 func (p *PlayData) SetCall(tile int, tianTing bool) {
@@ -80,6 +89,7 @@ func (p *PlayData) SetCall(tile int, tianTing bool) {
 
 func (p *PlayData) PutHandTile(tile int32) {
 	p.handTiles = append(p.handTiles, tile)
+	logger.Log.Info(p.handTiles)
 }
 
 func (p *PlayData) RemoveHandTile(tile int32, count int) {
@@ -468,7 +478,7 @@ func (p *PlayData) canKonAfterCall(tile int32, konType KonType, rule *Rule) bool
 		hudata.TilesInHand = hudata.TilesInHand[:len(hudata.TilesInHand)-1]
 	}
 	call0 := Service.CheckCall(hudata, rule)
-	hudata.TilesInHand = RemoveAllElement(hudata.TilesInHand, tile)
+	hudata.TilesInHand = slices.DeleteFunc(hudata.TilesInHand, func(v int32) bool { return v == tile })
 	call1 := Service.CheckCall(hudata, rule)
 	if len(call0) != 1 || len(call1) != 1 {
 		return false

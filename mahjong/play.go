@@ -132,7 +132,7 @@ func (p *Play) sendTips(tips int, seat int32) {
 	//TODO
 }
 
-func (p *Play) Discard(tile int32) {
+func (p *Play) Discard(tile int32) bool {
 	playData := p.playData[p.curSeat]
 	if playData.call {
 		tile = playData.handTiles[len(playData.handTiles)-1]
@@ -142,9 +142,12 @@ func (p *Play) Discard(tile int32) {
 		tile = playData.handTiles[len(playData.handTiles)-1]
 	}
 
-	playData.Discard(tile)
-	p.curTile = tile
-	p.addHistory(p.curSeat, p.curTile, OperateDiscard, 0)
+	if playData.Discard(tile) {
+		p.curTile = tile
+		p.addHistory(p.curSeat, p.curTile, OperateDiscard, 0)
+		return true
+	}
+	return false
 }
 
 func (p *Play) ZhiKon(seat int32) {
@@ -215,7 +218,7 @@ func (p *Play) PaoHu(huSeats []int32) []int64 {
 
 func (p *Play) Draw() int32 {
 	tile := p.dealer.DrawTile()
-	if tile == TileNull {
+	if tile != TileNull {
 		p.playData[p.curSeat].PutHandTile(tile)
 		p.addHistory(p.curSeat, tile, OperateDraw, 0)
 	}

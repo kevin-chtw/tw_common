@@ -1,6 +1,7 @@
 package mahjong
 
 import (
+	"maps"
 	"sort"
 )
 
@@ -50,6 +51,7 @@ func (hc *HuCore) initialize() {
 	// 训练所有组合
 	hc.trainAllComb(single, hc.mapHuAll)
 	hc.trainAllCombJiang(singleJiang, hc.mapHuAll)
+
 	hc.trainAllComb(singleFZ, hc.mapHuAllFZ)
 	hc.trainAllCombJiang(singleJiangFZ, hc.mapHuAllFZ)
 
@@ -124,30 +126,45 @@ func (hc *HuCore) trainAllComb(single map[int]int, outMap []map[int]TileStyle) {
 	}
 	sort.Ints(keys)
 
-	var dfs func(start, sumKey, sumVal int, depth int)
-	dfs = func(start, sumKey, sumVal int, depth int) {
-		if depth > 0 { // 长度 1~5 才需要写入
-			if hc.isValidKey(sumKey) {
-				hc.addMap(outMap, sumKey, sumVal)
+	for i1 := 0; i1 < len(keys); i1++ {
+		hc.addMap(outMap, keys[i1], single[keys[i1]])
+		for i2 := i1; i2 < len(keys); i2++ {
+			key := keys[i1] + keys[i2]
+			if !hc.isValidKey(key) {
+				continue
 			}
-			if depth == 5 { // 已到最大长度，无需继续
-				return
+			hc.addMap(outMap, key, single[keys[i1]]+single[keys[i2]])
+			for i3 := i2; i3 < len(keys); i3++ {
+				key = keys[i1] + keys[i2] + keys[i3]
+				if !hc.isValidKey(key) {
+					continue
+				}
+				hc.addMap(outMap, key, single[keys[i1]]+single[keys[i2]]+single[keys[i3]])
+				for i4 := i3; i4 < len(keys); i4++ {
+					key = keys[i1] + keys[i2] + keys[i3] + keys[i4]
+					if !hc.isValidKey(key) {
+						continue
+					}
+					hc.addMap(outMap, key, single[keys[i1]]+single[keys[i2]]+single[keys[i3]]+single[keys[i4]])
+
+					for i5 := i4; i5 < len(keys); i5++ {
+						key = keys[i1] + keys[i2] + keys[i3] + keys[i4] + keys[i5]
+						if !hc.isValidKey(key) {
+							continue
+						}
+						hc.addMap(outMap, key, single[keys[i1]]+single[keys[i2]]+single[keys[i3]]+single[keys[i4]]+single[keys[i5]])
+					}
+				}
 			}
-		}
-		for i := start; i < len(keys); i++ {
-			dfs(i, sumKey+keys[i], sumVal+single[keys[i]], depth+1)
 		}
 	}
-	dfs(0, 0, 0, 0)
 }
 
 func (hc *HuCore) trainAllCombJiang(single map[int]int, outMap []map[int]TileStyle) {
 	tempMap := make([]map[int]TileStyle, hc.maxHandCount+1)
 	for i := range tempMap {
 		tempMap[i] = make(map[int]TileStyle)
-		for k, v := range outMap[i] {
-			tempMap[i][k] = v
-		}
+		maps.Copy(tempMap[i], outMap[i])
 	}
 
 	for key := range single {
@@ -165,14 +182,6 @@ func (hc *HuCore) trainAllCombJiang(single map[int]int, outMap []map[int]TileSty
 }
 
 func (hc *HuCore) buildQuickTable() {
-	var numAll int = 0
-	for _, m := range hc.mapHuAll {
-		numAll += len(m)
-	}
-	for _, m := range hc.mapHuAllFZ {
-		numAll += len(m)
-	}
-
 	for i := 0; i < (hc.maxHandCount + 1); i++ {
 		for key, style := range hc.mapHuAll[i] {
 			nArrayIndex, localMax := hc.getArrayAndMax(key)
@@ -278,7 +287,7 @@ func (hc *HuCore) checkBasicHu(tiles []int, countLaiZi int) bool {
 
 func (hc *HuCore) isValidKey(key int) bool {
 	tiles := make([]int, MAX_KEY_NUM)
-	for i := 0; i < MAX_KEY_NUM; i++ {
+	for i := range MAX_KEY_NUM {
 		tiles[i] = (key >> (BIT_VAL_NUM * i)) & BIT_VAL_FLAG
 	}
 
@@ -356,9 +365,10 @@ func (hc *HuCore) toNumVal(tiles []int, max int) (flag bool, num, val int) {
 	flag = true
 	for i := 0; i < max; i++ {
 		num += tiles[i]
-		val |= tiles[i] << (2 * i)
 		if tiles[i] > 3 {
 			flag = false
+		} else {
+			val |= tiles[i] << (2 * i)
 		}
 	}
 	return
