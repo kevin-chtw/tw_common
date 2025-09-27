@@ -124,15 +124,10 @@ func (p *PlayData) canPon(tile int32, cantOnlyLaiAfterPon bool) bool {
 	if CountElement(p.handTiles, tile) < 2 {
 		return false
 	}
-	if cantOnlyLaiAfterPon {
-		tiles := RemoveElements(p.handTiles, tile, 2)
-		for _, t := range tiles {
-			if !slices.Contains(p.play.tilesLai, t) {
-				return true
-			}
-		}
+	if cantOnlyLaiAfterPon && p.play.isAllLai(RemoveElements(p.handTiles, tile, 2)) {
+		return false
 	}
-	return false
+	return true
 }
 
 func (p *PlayData) canChow(tile int32) bool {
@@ -211,14 +206,37 @@ func (p *PlayData) IsBanQiHuFanTip() bool {
 	return p.qiHuFanLimitTip
 }
 
-func (p *PlayData) Chow(curTile, tile, from int32) int32 {
+func (p *PlayData) TryChow(curTile, tile, from int32) bool {
+	color := TileColor(tile)
+	point := TilePoint(tile)
+
+	if color != TileColor(curTile) || TilePoint(curTile)-point >= 3 {
+		return false
+	}
+
+	tiles := make([]int32, 0)
+	for i := range 3 {
+		t := MakeTile(color, point+i)
+		if t == curTile {
+			continue
+		}
+		if !slices.Contains(p.handTiles, t) {
+			return false
+		}
+		tiles = append(tiles, t)
+	}
+
+	for _, t := range tiles {
+		p.RemoveHandTile(t, 1)
+	}
+
 	group := ChowGroup{
 		ChowTile: curTile,
 		From:     from,
 		LeftTile: tile,
 	}
 	p.chowGroups = append(p.chowGroups, group)
-	return curTile
+	return true
 }
 
 func (p *PlayData) GetChowGroups() []ChowGroup {
@@ -226,6 +244,7 @@ func (p *PlayData) GetChowGroups() []ChowGroup {
 }
 
 func (p *PlayData) Pon(tile, from int32) int32 {
+	p.RemoveHandTile(tile, 2)
 	group := Group{
 		Tile: tile,
 		From: from,
@@ -484,13 +503,4 @@ func (p *PlayData) canKonAfterCall(tile int32, konType KonType, rule *Rule) bool
 		return false
 	}
 	return HasSameKeys(call0[TileNull], call1[TileNull])
-}
-
-func (p *PlayData) isAllLai() bool {
-	for _, tile := range p.handTiles {
-		if !slices.Contains(p.play.tilesLai, tile) {
-			return false
-		}
-	}
-	return true
 }

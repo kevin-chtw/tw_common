@@ -183,6 +183,16 @@ func (p *Play) Pon(seat int32) {
 	p.addHistory(seat, p.curTile, OperatePon, 0)
 }
 
+func (p *Play) Chow(seat, leftTile int32) {
+	playData := p.playData[seat]
+	if playData.TryChow(p.curTile, leftTile, p.curSeat) {
+		p.playData[p.curSeat].RemoveOutTile()
+		p.addHistory(seat, leftTile, OperateChow, int(p.curTile))
+	} else {
+		logrus.Error("player cannot chow")
+	}
+}
+
 func (p *Play) Zimo() (multiples []int64) {
 	multiples = make([]int64, p.game.GetPlayerCount())
 	huResult := p.huResult[p.curSeat]
@@ -311,8 +321,18 @@ func (p *Play) checkMustHu(seat int32) bool {
 	}
 	playData := p.playData[seat]
 
-	if playData.isAllLai() || playData.call && slices.Contains(p.tilesLai, playData.handTiles[len(playData.handTiles)-1]) {
+	if p.isAllLai(playData.handTiles) || playData.call && slices.Contains(p.tilesLai, playData.handTiles[len(playData.handTiles)-1]) {
 		return true
 	}
 	return false
+}
+
+func (p *Play) isAllLai(tiles []int32) bool {
+	for _, tile := range tiles {
+		if !slices.Contains(p.tilesLai, tile) {
+			return false
+		}
+	}
+	return true
+
 }
