@@ -28,7 +28,7 @@ type ChowGroup struct {
 
 type PlayData struct {
 	play            *Play
-	callDataMap     map[int]map[int]int
+	callDataMap     map[Tile]map[Tile]int64
 	call            bool
 	tianTing        bool
 	handTiles       []Tile
@@ -51,7 +51,7 @@ type PlayData struct {
 
 func NewPlayData(seat int32) *PlayData {
 	return &PlayData{
-		callDataMap:  make(map[int]map[int]int),
+		callDataMap:  make(map[Tile]map[Tile]int64),
 		handTiles:    make([]Tile, 0),
 		outTiles:     make([]Tile, 0),
 		canGangTiles: make([]Tile, 0),
@@ -64,11 +64,11 @@ func NewPlayData(seat int32) *PlayData {
 	}
 }
 
-func (p *PlayData) MutableCallDataMap() map[int]map[int]int {
-	return p.callDataMap
+func (p *PlayData) SetCallData(callData map[Tile]map[Tile]int64) {
+	p.callDataMap = callData
 }
 
-func (p *PlayData) GetCallDataMap() map[int]map[int]int {
+func (p *PlayData) GetCallDataMap() map[Tile]map[Tile]int64 {
 	return p.callDataMap
 }
 

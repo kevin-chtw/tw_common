@@ -84,12 +84,13 @@ func (p *Play) GetCurScores() []int64 {
 }
 
 func (p *Play) Deal() {
-	count := p.game.GetPlayerCount()
-	for i := range count {
+	for i := range p.game.GetPlayerCount() {
 		p.playData[i].handTiles = p.dealer.Deal(Service.GetHandCount())
 	}
-
 	p.playData[p.banker].PutHandTile(p.dealer.DrawTile())
+	for i := range p.game.GetPlayerCount() {
+		p.freshCallData(i)
+	}
 }
 
 func (p *Play) GetPlayData(seat int32) *PlayData {
@@ -145,6 +146,7 @@ func (p *Play) Discard(tile Tile) bool {
 	if playData.Discard(tile) {
 		p.curTile = tile
 		p.addHistory(p.curSeat, p.curTile, OperateDiscard, 0)
+		p.freshCallData(p.curSeat)
 		return true
 	}
 	return false
@@ -159,6 +161,7 @@ func (p *Play) ZhiKon(seat int32) {
 	playData.kon(p.curTile, p.curSeat, KonTypeZhi)
 	p.playData[p.curSeat].RemoveOutTile()
 	p.addHistory(seat, p.curTile, OperateKon, 0)
+	p.freshCallData(seat)
 }
 
 func (p *Play) TryKon(tile Tile, konType KonType) bool {
@@ -169,6 +172,7 @@ func (p *Play) TryKon(tile Tile, konType KonType) bool {
 	playData.kon(tile, p.curSeat, konType)
 	p.curTile = tile
 	p.addHistory(p.curSeat, p.curTile, OperateKon, 0)
+	p.freshCallData(p.curSeat)
 	return true
 }
 
@@ -181,6 +185,7 @@ func (p *Play) Pon(seat int32) {
 	playData.Pon(p.curTile, p.curSeat)
 	p.playData[p.curSeat].RemoveOutTile()
 	p.addHistory(seat, p.curTile, OperatePon, 0)
+	p.freshCallData(seat)
 }
 
 func (p *Play) Chow(seat int32, leftTile Tile) {
@@ -188,6 +193,7 @@ func (p *Play) Chow(seat int32, leftTile Tile) {
 	if playData.TryChow(p.curTile, leftTile, p.curSeat) {
 		p.playData[p.curSeat].RemoveOutTile()
 		p.addHistory(seat, leftTile, OperateChow, int(p.curTile))
+		p.freshCallData(seat)
 	} else {
 		logrus.Error("player cannot chow")
 	}
@@ -231,6 +237,7 @@ func (p *Play) Draw() Tile {
 	if tile != TileNull {
 		p.playData[p.curSeat].PutHandTile(tile)
 		p.addHistory(p.curSeat, tile, OperateDraw, 0)
+		p.freshCallData(p.curSeat)
 	}
 	return tile
 }
@@ -334,5 +341,10 @@ func (p *Play) isAllLai(tiles []Tile) bool {
 		}
 	}
 	return true
+}
 
+func (p *Play) freshCallData(seat int32) {
+	playData := p.playData[seat]
+	data := NewCheckHuData(p, playData, false)
+	playData.SetCallData(Service.CheckCall(data, p.game.rule))
 }
