@@ -5,14 +5,14 @@ import "math/rand"
 // Dealer 麻将发牌器接口
 type Dealer struct {
 	game     *Game
-	tileWall []int32
+	tileWall []Tile
 }
 
 // NewDealer 创建新的发牌器
 func NewDealer(game *Game) *Dealer {
 	return &Dealer{
 		game:     game,
-		tileWall: make([]int32, 0),
+		tileWall: make([]Tile, 0),
 	}
 }
 
@@ -28,7 +28,7 @@ func (d *Dealer) Initialize() {
 	for _, count := range tiles {
 		total += count
 	}
-	d.tileWall = make([]int32, total)
+	d.tileWall = make([]Tile, total)
 
 	// 填充并同时随机化牌墙
 	i := 0
@@ -46,7 +46,7 @@ func (d *Dealer) Initialize() {
 }
 
 // DrawTile 抽牌
-func (d *Dealer) DrawTile() int32 {
+func (d *Dealer) DrawTile() Tile {
 	if len(d.tileWall) == 0 {
 		return TileNull
 	}
@@ -54,8 +54,8 @@ func (d *Dealer) DrawTile() int32 {
 	d.tileWall = d.tileWall[1:]
 	return tile
 }
-func (d *Dealer) Deal(count int) []int32 {
-	tiles := make([]int32, count)
+func (d *Dealer) Deal(count int) []Tile {
+	tiles := make([]Tile, count)
 	copy(tiles, d.tileWall[:count])
 	d.tileWall = d.tileWall[count:]
 	return tiles

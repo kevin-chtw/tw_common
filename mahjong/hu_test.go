@@ -9,7 +9,7 @@ import (
 )
 
 type Case struct {
-	cards []int32
+	cards []mahjong.Tile
 	laiZi int
 	want  bool
 }
@@ -23,17 +23,17 @@ func Test_Hu(t *testing.T) {
 
 	testCases := []Case{
 		{
-			cards: []int32{17, 17, 33, 33, 49, 49, 65, 65, 81, 81, 97, 97, 113, 113},
+			cards: []mahjong.Tile{17, 17, 33, 33, 49, 49, 65, 65, 81, 81, 97, 97, 113, 113},
 			laiZi: 0,
 			want:  true,
 		},
 		{
-			cards: []int32{17, 17, 33, 49, 65, 65, 65, 81, 81, 97, 97},
+			cards: []mahjong.Tile{17, 17, 33, 49, 65, 65, 65, 81, 81, 97, 97},
 			laiZi: 0,
 			want:  true,
 		},
 		{
-			cards: []int32{625, 97, 513, 577, 513, 273, 529, 561, 257, 273, 609, 641, 625, 113},
+			cards: []mahjong.Tile{625, 97, 513, 577, 513, 273, 529, 561, 257, 273, 609, 641, 625, 113},
 			laiZi: 0,
 			want:  false,
 		},
@@ -43,7 +43,7 @@ func Test_Hu(t *testing.T) {
 	for i, tc := range testCases {
 		t.Run("case"+strconv.FormatInt(int64(i), 10), func(t *testing.T) {
 			slices.Sort(tc.cards)
-			t.Log(mahjong.GetTilesName(tc.cards))
+			t.Log(mahjong.TilesName(tc.cards))
 			got := hc.CheckBasicHu(tc.cards, tc.laiZi)
 			if got != tc.want {
 				t.Errorf("CheckBasicHu(%v, %d) = %v, want %v", tc.cards, tc.laiZi, got, tc.want)

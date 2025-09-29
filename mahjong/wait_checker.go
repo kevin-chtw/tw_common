@@ -107,11 +107,11 @@ func (c *ChowTingChecker) Check(play *Play, seat int32, opt *Operates, tips []in
 	}
 
 	huData := NewCheckHuData(play, play.playData[play.curSeat], true)
-	leftPoint := max(0, TilePoint(play.curTile)-2)
-	color := TileColor(play.curTile)
+	leftPoint := max(0, play.curTile.Point()-2)
+	color := play.curTile.Color()
 
 	for p := leftPoint; p < leftPoint+3; p++ {
-		tiles := make([]int32, 0)
+		tiles := make([]Tile, 0)
 		for i := range 3 {
 			tile := MakeTile(color, p+i)
 			if tile != play.curTile && slices.Contains(playData.handTiles, tile) {

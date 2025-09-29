@@ -3,13 +3,13 @@ package mahjong
 import "slices"
 
 type HuData struct {
-	TilesInHand      []int32
+	TilesInHand      []Tile
 	LaiCount         int
-	tilesForChowLeft []int32
-	tilesForPon      []int32
-	tilesForKon      []int32
+	tilesForChowLeft []Tile
+	tilesForPon      []Tile
+	tilesForKon      []Tile
 	ExtraHuTypes     []int32
-	paoTile          int32
+	paoTile          Tile
 	countAnKon       int32
 	isCall           bool
 	canCall          bool
@@ -36,12 +36,12 @@ func NewCheckHuData(play *Play, playData *PlayData, self bool) *HuData {
 	return data
 }
 
-func removeLaiZi(tiles []int32, laiTiles ...int32) (newTiles []int32, laiCount int) {
-	laiSet := make(map[int32]struct{}, len(laiTiles))
+func removeLaiZi(tiles []Tile, laiTiles ...Tile) (newTiles []Tile, laiCount int) {
+	laiSet := make(map[Tile]struct{}, len(laiTiles))
 	for _, t := range laiTiles {
 		laiSet[t] = struct{}{}
 	}
-	newTiles = slices.DeleteFunc(tiles, func(t int32) bool {
+	newTiles = slices.DeleteFunc(tiles, func(t Tile) bool {
 		if _, ok := laiSet[t]; ok {
 			laiCount++
 			return true

@@ -17,9 +17,9 @@ type Play struct {
 	game         *Game
 	dealer       *Dealer
 	curSeat      int32
-	curTile      int32
+	curTile      Tile
 	banker       int32
-	tilesLai     []int32
+	tilesLai     []Tile
 	history      []Action
 	playData     []*PlayData
 	huSeats      []int32
@@ -35,7 +35,7 @@ func NewPlay(game *Game) *Play {
 		curSeat:      SeatNull,
 		curTile:      TileNull,
 		banker:       SeatNull,
-		tilesLai:     make([]int32, 0),
+		tilesLai:     make([]Tile, 0),
 		history:      make([]Action, 0),
 		playData:     make([]*PlayData, game.GetPlayerCount()),
 		huSeats:      make([]int32, 0),
@@ -132,7 +132,7 @@ func (p *Play) sendTips(tips int, seat int32) {
 	//TODO
 }
 
-func (p *Play) Discard(tile int32) bool {
+func (p *Play) Discard(tile Tile) bool {
 	playData := p.playData[p.curSeat]
 	if playData.call {
 		tile = playData.handTiles[len(playData.handTiles)-1]
@@ -161,7 +161,7 @@ func (p *Play) ZhiKon(seat int32) {
 	p.addHistory(seat, p.curTile, OperateKon, 0)
 }
 
-func (p *Play) TryKon(tile int32, konType KonType) bool {
+func (p *Play) TryKon(tile Tile, konType KonType) bool {
 	playData := p.playData[p.curSeat]
 	if !playData.canKon(tile, konType) {
 		return false
@@ -183,7 +183,7 @@ func (p *Play) Pon(seat int32) {
 	p.addHistory(seat, p.curTile, OperatePon, 0)
 }
 
-func (p *Play) Chow(seat, leftTile int32) {
+func (p *Play) Chow(seat int32, leftTile Tile) {
 	playData := p.playData[seat]
 	if playData.TryChow(p.curTile, leftTile, p.curSeat) {
 		p.playData[p.curSeat].RemoveOutTile()
@@ -226,7 +226,7 @@ func (p *Play) PaoHu(huSeats []int32) []int64 {
 	return multiples
 }
 
-func (p *Play) Draw() int32 {
+func (p *Play) Draw() Tile {
 	tile := p.dealer.DrawTile()
 	if tile != TileNull {
 		p.playData[p.curSeat].PutHandTile(tile)
@@ -255,7 +255,7 @@ func (p *Play) GetCurSeat() int32 {
 	return p.curSeat
 }
 
-func (p *Play) GetCurTile() int32 {
+func (p *Play) GetCurTile() Tile {
 	return p.curTile
 }
 
@@ -286,7 +286,7 @@ func (p *Play) getLastGameData() *LastGameData {
 	return lgd
 }
 
-func (p *Play) addHistory(seat int32, tile int32, operate int, extra int) {
+func (p *Play) addHistory(seat int32, tile Tile, operate int, extra int) {
 	action := Action{
 		Seat:    seat,
 		Tile:    tile,
@@ -303,7 +303,7 @@ func (p *Play) addHuOperate(opt *Operates, seat int32, result *HuResult, mustHu 
 	opt.IsMustHu = mustHu
 }
 
-func (p *Play) isKonAfterPon(tile int32) bool {
+func (p *Play) isKonAfterPon(tile Tile) bool {
 	if len(p.history) <= 0 {
 		return false
 	}
@@ -327,7 +327,7 @@ func (p *Play) checkMustHu(seat int32) bool {
 	return false
 }
 
-func (p *Play) isAllLai(tiles []int32) bool {
+func (p *Play) isAllLai(tiles []Tile) bool {
 	for _, tile := range tiles {
 		if !slices.Contains(p.tilesLai, tile) {
 			return false

@@ -203,15 +203,14 @@ func (hc *HuCore) buildQuickTable() {
 	}
 }
 
-func (hc *HuCore) CheckBasicHu(cards []int32, countLaiZi int) bool {
+func (hc *HuCore) CheckBasicHu(cards []Tile, countLaiZi int) bool {
 	if !hc.initialized {
 		return false
 	}
 
 	tiles := make([]int, 42)
 	for _, tile := range cards {
-		color := int(TileColor(tile))
-		point := TilePoint(tile)
+		color, point := tile.Info()
 		pos := SEQ_BEGIN_BY_COLOR[color] + point
 		if tiles[pos]++; tiles[pos] > 4 {
 			return false
