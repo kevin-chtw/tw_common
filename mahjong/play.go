@@ -24,8 +24,8 @@ type Play struct {
 	playData     []*PlayData
 	huSeats      []int32
 	huResult     []*HuResult
-	selfCheckers []SelfChecker
-	waitcheckers []WaitChecker
+	selfCheckers []CheckerSelf
+	waitcheckers []CheckerWait
 }
 
 func NewPlay(game *Game) *Play {
@@ -40,26 +40,26 @@ func NewPlay(game *Game) *Play {
 		playData:     make([]*PlayData, game.GetPlayerCount()),
 		huSeats:      make([]int32, 0),
 		huResult:     make([]*HuResult, game.GetPlayerCount()),
-		selfCheckers: make([]SelfChecker, 0),
-		waitcheckers: make([]WaitChecker, 0),
+		selfCheckers: make([]CheckerSelf, 0),
+		waitcheckers: make([]CheckerWait, 0),
 	}
 }
 
-func (p *Play) RegisterSelfCheck(cks ...SelfChecker) {
+func (p *Play) RegisterSelfCheck(cks ...CheckerSelf) {
 	p.selfCheckers = append(p.selfCheckers, cks...)
 }
-func (p *Play) RegisterWaitCheck(cks ...WaitChecker) {
+func (p *Play) RegisterWaitCheck(cks ...CheckerWait) {
 	p.waitcheckers = append(p.waitcheckers, cks...)
 }
 
-func (p *Play) Initialize(pdfn func(int32) *PlayData) {
+func (p *Play) Initialize(pdfn func(*Play, int32) *PlayData) {
 	lgd := p.getLastGameData()
 	p.banker = lgd.banker
 	p.curSeat = p.banker
 	p.dealer.Initialize()
 	p.history = make([]Action, 0)
 	for i := range p.game.GetPlayerCount() {
-		p.playData[i] = pdfn(int32(i))
+		p.playData[i] = pdfn(p, int32(i))
 	}
 }
 
@@ -133,9 +133,24 @@ func (p *Play) sendTips(tips int, seat int32) {
 	//TODO
 }
 
+func (p *Play) Ting(tile Tile) bool {
+	playData := p.playData[p.curSeat]
+	if !playData.canTing(tile) {
+		return false
+	}
+	if playData.Discard(tile) {
+		p.curTile = tile
+		playData.ting = true
+		p.addHistory(p.curSeat, p.curTile, OperateTing, 0)
+		p.freshCallData(p.curSeat)
+		return true
+	}
+	return false
+}
+
 func (p *Play) Discard(tile Tile) bool {
 	playData := p.playData[p.curSeat]
-	if playData.call {
+	if playData.ting {
 		tile = playData.handTiles[len(playData.handTiles)-1]
 	}
 
@@ -328,7 +343,7 @@ func (p *Play) checkMustHu(seat int32) bool {
 	}
 	playData := p.playData[seat]
 
-	if p.isAllLai(playData.handTiles) || playData.call && slices.Contains(p.tilesLai, playData.handTiles[len(playData.handTiles)-1]) {
+	if p.isAllLai(playData.handTiles) || playData.ting && slices.Contains(p.tilesLai, playData.handTiles[len(playData.handTiles)-1]) {
 		return true
 	}
 	return false
@@ -345,6 +360,6 @@ func (p *Play) isAllLai(tiles []Tile) bool {
 
 func (p *Play) freshCallData(seat int32) {
 	playData := p.playData[seat]
-	data := NewCheckHuData(p, playData, false)
+	data := playData.MakeHuData()
 	playData.SetCallData(Service.CheckCall(data, p.game.rule))
 }

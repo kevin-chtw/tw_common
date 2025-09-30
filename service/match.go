@@ -40,6 +40,12 @@ func (m *Match) Init() {
 
 // Message 处理匹配服务消息
 func (m *Match) Message(ctx context.Context, req *sproto.Match2GameReq) (*sproto.Match2GameAck, error) {
+	defer func() {
+		if r := recover(); r != nil {
+			logger.Log.Errorf("panic recovered: %v", r)
+		}
+	}()
+
 	if req == nil {
 		return nil, errors.New("nil request")
 	}

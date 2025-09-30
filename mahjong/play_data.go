@@ -29,7 +29,7 @@ type ChowGroup struct {
 type PlayData struct {
 	play            *Play
 	callDataMap     map[Tile]map[Tile]int64
-	call            bool
+	ting            bool
 	tianTing        bool
 	handTiles       []Tile
 	outTiles        []Tile
@@ -49,8 +49,9 @@ type PlayData struct {
 	drawRate        int
 }
 
-func NewPlayData(seat int32) *PlayData {
+func NewPlayData(p *Play, seat int32) *PlayData {
 	return &PlayData{
+		play:         p,
 		callDataMap:  make(map[Tile]map[Tile]int64),
 		handTiles:    make([]Tile, 0),
 		outTiles:     make([]Tile, 0),
@@ -64,12 +65,37 @@ func NewPlayData(seat int32) *PlayData {
 	}
 }
 
+func (p *PlayData) MakeHuData() *HuData {
+	data := &HuData{
+		tilesForChowLeft: p.tilesForChowLeft(),
+		tilesForPon:      p.tilesForPon(),
+		isTing:           p.ting,
+		canTing:          true,
+		LaiCount:         0,
+	}
+	if len(p.play.tilesLai) != 0 {
+		data.Tiles, data.LaiCount = removeLaiZi(p.handTiles, p.play.tilesLai...)
+	} else {
+		data.Tiles = slices.Clone(p.handTiles)
+	}
+
+	data.tilesForKon, data.countAnKon = p.tilesForKon()
+	return data
+}
+
 func (p *PlayData) SetCallData(callData map[Tile]map[Tile]int64) {
 	p.callDataMap = callData
 }
 
 func (p *PlayData) GetCallDataMap() map[Tile]map[Tile]int64 {
 	return p.callDataMap
+}
+
+func (p *PlayData) canTing(tile Tile) bool {
+	if _, ok := p.callDataMap[tile]; !ok {
+		return false
+	}
+	return true
 }
 
 func (p *PlayData) Discard(tile Tile) bool {
@@ -82,9 +108,17 @@ func (p *PlayData) Discard(tile Tile) bool {
 	return true
 }
 
-func (p *PlayData) SetCall(tile int, tianTing bool) {
-	p.call = true
+func (p *PlayData) SetTing(tile int, tianTing bool) {
+	p.ting = true
 	p.tianTing = tianTing
+}
+
+func (p *PlayData) IsTing() bool {
+	return p.ting
+}
+
+func (p *PlayData) IsTianTing() bool {
+	return p.tianTing
 }
 
 func (p *PlayData) PutHandTile(tile Tile) {
@@ -457,7 +491,7 @@ func (p *PlayData) canSelfKon(rule *Rule, ignoreTiles []Tile) bool {
 		}
 	}
 
-	if !p.call {
+	if !p.ting {
 		for _, pon := range p.ponGroups {
 			if slices.Contains(p.handTiles, pon.Tile) {
 				p.canGangTiles = append(p.canGangTiles, pon.Tile)
@@ -494,10 +528,10 @@ func (p *PlayData) canKonAfterCall(tile Tile, konType KonType, rule *Rule) bool 
 
 	hudata := NewCheckHuData(p.play, p, false)
 	if KonTypeZhi != konType {
-		hudata.TilesInHand = hudata.TilesInHand[:len(hudata.TilesInHand)-1]
+		hudata.Tiles = hudata.Tiles[:len(hudata.Tiles)-1]
 	}
 	call0 := Service.CheckCall(hudata, rule)
-	hudata.TilesInHand = RemoveAllElement(hudata.TilesInHand, tile)
+	hudata.Tiles = RemoveAllElement(hudata.Tiles, tile)
 	call1 := Service.CheckCall(hudata, rule)
 	if len(call0) != 1 || len(call1) != 1 {
 		return false

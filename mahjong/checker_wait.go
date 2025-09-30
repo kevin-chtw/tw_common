@@ -2,19 +2,19 @@ package mahjong
 
 import "slices"
 
-// WaitChecker 定义检查接口
-type WaitChecker interface {
+// CheckerWait 定义检查接口
+type CheckerWait interface {
 	Check(play *Play, seat int32, opt *Operates, tips []int) []int
 }
 
-type PaoChecker struct{}      // 点炮检查器
-type ChowChecker struct{}     // 吃牌检查器
-type PonChecker struct{}      // 碰牌检查器
-type ZhiKonChecker struct{}   // 直杠检查器
-type ChowTingChecker struct{} // 吃听检查器
-type PonTingChecker struct{}  // 碰听检查器
+type CheckerPao struct{}      // 点炮检查器
+type CheckerChow struct{}     // 吃牌检查器
+type CheckerPon struct{}      // 碰牌检查器
+type CheckerZhiKon struct{}   // 直杠检查器
+type CheckerChowTing struct{} // 吃听检查器
+type CheckerPonTing struct{}  // 碰听检查器
 
-func (c *PaoChecker) Check(play *Play, seat int32, opt *Operates, tips []int) []int {
+func (c *CheckerPao) Check(play *Play, seat int32, opt *Operates, tips []int) []int {
 	if play.PlayConf.OnlyZimo {
 		tips = append(tips, TipsOnlyZiMo)
 	}
@@ -37,12 +37,12 @@ func (c *PaoChecker) Check(play *Play, seat int32, opt *Operates, tips []int) []
 	return tips
 }
 
-func (c *ChowChecker) Check(play *Play, seat int32, opt *Operates, tips []int) []int {
+func (c *CheckerChow) Check(play *Play, seat int32, opt *Operates, tips []int) []int {
 	if opt.IsMustHu {
 		return tips
 	}
 	playData := play.playData[seat]
-	if playData.call {
+	if playData.ting {
 		return tips
 	}
 
@@ -56,12 +56,12 @@ func (c *ChowChecker) Check(play *Play, seat int32, opt *Operates, tips []int) [
 	return tips
 }
 
-func (c *PonChecker) Check(play *Play, seat int32, opt *Operates, tips []int) []int {
+func (c *CheckerPon) Check(play *Play, seat int32, opt *Operates, tips []int) []int {
 	if opt.IsMustHu {
 		return tips
 	}
 	playData := play.playData[seat]
-	if playData.call {
+	if playData.ting {
 		return tips
 	}
 
@@ -78,7 +78,7 @@ func (c *PonChecker) Check(play *Play, seat int32, opt *Operates, tips []int) []
 	return tips
 }
 
-func (c *ZhiKonChecker) Check(play *Play, seat int32, opt *Operates, tips []int) []int {
+func (c *CheckerZhiKon) Check(play *Play, seat int32, opt *Operates, tips []int) []int {
 	if opt.IsMustHu {
 		return tips
 	}
@@ -93,12 +93,12 @@ func (c *ZhiKonChecker) Check(play *Play, seat int32, opt *Operates, tips []int)
 	return tips
 }
 
-func (c *ChowTingChecker) Check(play *Play, seat int32, opt *Operates, tips []int) []int {
+func (c *CheckerChowTing) Check(play *Play, seat int32, opt *Operates, tips []int) []int {
 	if opt.IsMustHu {
 		return tips
 	}
 	playData := play.playData[seat]
-	if playData.call {
+	if playData.ting {
 		return tips
 	}
 
@@ -115,7 +115,7 @@ func (c *ChowTingChecker) Check(play *Play, seat int32, opt *Operates, tips []in
 		for i := range 3 {
 			tile := MakeTile(color, p+i)
 			if tile != play.curTile && slices.Contains(playData.handTiles, tile) {
-				huData.TilesInHand = RemoveElements(huData.TilesInHand, tile, 1)
+				huData.Tiles = RemoveElements(huData.Tiles, tile, 1)
 				tiles = append(tiles, tile)
 			}
 		}
@@ -126,18 +126,18 @@ func (c *ChowTingChecker) Check(play *Play, seat int32, opt *Operates, tips []in
 				return tips
 			}
 		}
-		huData.TilesInHand = append(huData.TilesInHand, tiles...)
+		huData.Tiles = append(huData.Tiles, tiles...)
 	}
 	return tips
 }
 
-func (c *PonTingChecker) Check(play *Play, seat int32, opt *Operates, tips []int) []int {
+func (c *CheckerPonTing) Check(play *Play, seat int32, opt *Operates, tips []int) []int {
 	if !opt.HasOperate(OperatePon) {
 		return tips
 	}
 
 	huData := NewCheckHuData(play, play.playData[play.curSeat], true)
-	huData.TilesInHand = RemoveElements(huData.TilesInHand, play.curTile, 2)
+	huData.Tiles = RemoveElements(huData.Tiles, play.curTile, 2)
 	callData := Service.CheckCall(huData, play.game.rule)
 	if len(callData) > 0 {
 		opt.AddOperate(OperatePonTing)

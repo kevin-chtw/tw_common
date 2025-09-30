@@ -3,7 +3,7 @@ package mahjong
 import "slices"
 
 type HuData struct {
-	TilesInHand      []Tile
+	Tiles            []Tile
 	LaiCount         int
 	tilesForChowLeft []Tile
 	tilesForPon      []Tile
@@ -11,28 +11,20 @@ type HuData struct {
 	ExtraHuTypes     []int32
 	paoTile          Tile
 	countAnKon       int32
-	isCall           bool
-	canCall          bool
+	isTing           bool
+	canTing          bool
 }
 
 func NewCheckHuData(play *Play, playData *PlayData, self bool) *HuData {
-	data := &HuData{
-		tilesForChowLeft: playData.tilesForChowLeft(),
-		tilesForPon:      playData.tilesForPon(),
-		paoTile:          TileNull,
-		isCall:           playData.call,
-		canCall:          true,
-	}
-
-	data.TilesInHand, data.LaiCount = removeLaiZi(playData.handTiles, play.tilesLai...)
+	data := playData.MakeHuData()
 	if self {
 		data.ExtraHuTypes = play.ExtraHuTypes.SelfExtraFans()
 	} else {
 		data.paoTile = play.GetCurTile()
-		data.TilesInHand = append(data.TilesInHand, data.paoTile)
+		data.Tiles = append(data.Tiles, data.paoTile)
 		data.ExtraHuTypes = play.ExtraHuTypes.PaoExtraFans()
 	}
-	data.tilesForKon, data.countAnKon = playData.tilesForKon()
+
 	return data
 }
 

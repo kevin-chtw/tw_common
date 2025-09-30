@@ -3,6 +3,8 @@ package mahjong
 import (
 	"maps"
 	"sort"
+
+	"github.com/topfreegames/pitaya/v3/pkg/logger"
 )
 
 type HuCore struct {
@@ -210,6 +212,10 @@ func (hc *HuCore) CheckBasicHu(cards []Tile, countLaiZi int) bool {
 
 	tiles := make([]int, 42)
 	for _, tile := range cards {
+		if !tile.IsValid() {
+			logger.Log.Errorf("tile is invalid: %v", tile)
+			return false
+		}
 		color, point := tile.Info()
 		pos := SEQ_BEGIN_BY_COLOR[color] + point
 		if tiles[pos]++; tiles[pos] > 4 {

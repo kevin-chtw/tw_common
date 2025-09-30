@@ -1,14 +1,14 @@
 package mahjong
 
-type SelfChecker interface {
+type CheckerSelf interface {
 	Check(play *Play, opt *Operates, tips []int) []int
 }
 
-type HuChecker struct{}   // 胡检查器
-type KonChecker struct{}  // 杠检查器
-type CallChecker struct{} // 听检查器
+type CheckerHu struct{}   // 胡检查器
+type CheckerKon struct{}  // 杠检查器
+type CheckerTing struct{} // 听检查器
 
-func (c *HuChecker) Check(play *Play, opt *Operates, tips []int) []int {
+func (c *CheckerHu) Check(play *Play, opt *Operates, tips []int) []int {
 	if play.IsAfterPon() {
 		return tips
 	}
@@ -30,7 +30,7 @@ func (c *HuChecker) Check(play *Play, opt *Operates, tips []int) []int {
 	return tips
 }
 
-func (c *KonChecker) Check(play *Play, opt *Operates, tips []int) []int {
+func (c *CheckerKon) Check(play *Play, opt *Operates, tips []int) []int {
 	if opt.IsMustHu {
 		return tips
 	}
@@ -40,7 +40,7 @@ func (c *KonChecker) Check(play *Play, opt *Operates, tips []int) []int {
 	return tips
 }
 
-func (c *CallChecker) Check(play *Play, opt *Operates, tips []int) []int {
+func (c *CheckerTing) Check(play *Play, opt *Operates, tips []int) []int {
 	if opt.IsMustHu {
 		return tips
 	}
