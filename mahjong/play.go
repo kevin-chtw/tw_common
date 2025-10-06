@@ -28,10 +28,10 @@ type Play struct {
 	waitcheckers []CheckerWait
 }
 
-func NewPlay(game *Game) *Play {
+func NewPlay(game *Game, dealer *Dealer) *Play {
 	return &Play{
 		game:         game,
-		dealer:       NewDealer(game),
+		dealer:       dealer,
 		curSeat:      SeatNull,
 		curTile:      TileNull,
 		banker:       SeatNull,
@@ -61,14 +61,6 @@ func (p *Play) Initialize(pdfn func(*Play, int32) *PlayData) {
 	for i := range p.game.GetPlayerCount() {
 		p.playData[i] = pdfn(p, int32(i))
 	}
-}
-
-func (p *Play) GetDealer() *Dealer {
-	return p.dealer
-}
-
-func (p *Play) GetHuResult(seat int32) *HuResult {
-	return p.huResult[seat]
 }
 
 func (p *Play) GetCurScores() []int64 {
@@ -279,10 +271,6 @@ func (p *Play) GetCurSeat() int32 {
 
 func (p *Play) GetCurTile() Tile {
 	return p.curTile
-}
-
-func (p *Play) GetBanker() int32 {
-	return p.banker
 }
 
 func (p *Play) HasOperate(seat int32) bool {

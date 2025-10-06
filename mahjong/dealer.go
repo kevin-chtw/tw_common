@@ -1,6 +1,9 @@
 package mahjong
 
-import "math/rand"
+import (
+	"math/rand"
+	"slices"
+)
 
 // Dealer 麻将发牌器接口
 type Dealer struct {
@@ -64,4 +67,21 @@ func (d *Dealer) Deal(count int) []Tile {
 // GetRestTileCount 获取剩余牌数
 func (d *Dealer) GetRestCount() int32 {
 	return int32(len(d.tileWall))
+}
+
+func (d *Dealer) HasTile(tile Tile) bool {
+	return slices.Contains(d.tileWall, tile)
+}
+
+func (d *Dealer) LastTile() Tile {
+	return d.tileWall[len(d.tileWall)-1]
+}
+
+func (d *Dealer) SwapLastTile() Tile {
+	if len(d.tileWall) < 2 {
+		return TileNull
+	}
+	i := rand.Intn(len(d.tileWall) - 1)
+	d.tileWall[len(d.tileWall)-1], d.tileWall[i] = d.tileWall[i], d.tileWall[len(d.tileWall)-1]
+	return d.LastTile()
 }

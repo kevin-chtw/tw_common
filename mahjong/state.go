@@ -41,13 +41,13 @@ func (s *State) AsyncMsgTimer(
 	onTimeout func(),
 ) {
 	s.msgHandler = handler
-	s.game.GetTimer().Schedule(timeout, onTimeout)
+	s.game.timer.Schedule(timeout, onTimeout)
 }
 
 // AsyncTimer 设置异步定时器
 func (s *State) AsyncTimer(timeout time.Duration, onTimeout func()) {
 	s.msgHandler = nil
-	s.game.GetTimer().Schedule(timeout, onTimeout)
+	s.game.timer.Schedule(timeout, onTimeout)
 }
 
 // HandlePlayerMsg 处理玩家消息

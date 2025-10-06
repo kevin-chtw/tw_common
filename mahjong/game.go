@@ -77,10 +77,6 @@ func (g *Game) OnNetChange(player *game.Player, offline bool) {
 	}
 }
 
-func (g *Game) GetTimer() *Timer {
-	return g.timer
-}
-
 func (g *Game) GetRule() *Rule {
 	return g.rule
 }
