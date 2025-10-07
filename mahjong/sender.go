@@ -63,7 +63,7 @@ func (s *Sender) SendOpenDoorAck() {
 		openDoor := &pbmj.MJOpenDoorAck{
 			Seat:     i,
 			Tiles:    s.play.GetPlayData(i).GetHandTilesInt32(),
-			CallData: ToCallData(s.play.GetPlayData(i).GetCallDataMap()),
+			CallData: ToCallData(s.play.GetPlayData(i).GetCallMap()),
 		}
 		s.SendMsg(openDoor, i)
 	}
@@ -102,23 +102,23 @@ func (s *Sender) SendTingAck(seat int32, tile Tile) {
 	s.SendMsg(tingAck, game.SeatAll)
 }
 
-func (s *Sender) SendChowAck(seat int32, leftTile Tile) {
+func (s *Sender) SendChowAck(seat int32, tile, leftTile Tile) {
 	chowAck := &pbmj.MJChowAck{
 		Seat:     seat,
 		From:     s.play.GetCurSeat(),
-		Tile:     s.play.GetCurTile().ToInt32(),
+		Tile:     tile.ToInt32(),
 		LeftTile: leftTile.ToInt32(),
-		CallData: ToCallData(s.play.GetPlayData(seat).GetCallDataMap()),
+		CallData: ToCallData(s.play.GetPlayData(seat).GetCallMap()),
 	}
 	s.SendMsg(chowAck, game.SeatAll)
 }
 
-func (s *Sender) SendPonAck(seat int32) {
+func (s *Sender) SendPonAck(seat int32, tile Tile) {
 	ponAck := &pbmj.MJPonAck{
 		Seat:     seat,
 		From:     s.play.GetCurSeat(),
-		Tile:     s.play.GetCurTile().ToInt32(),
-		CallData: ToCallData(s.play.GetPlayData(seat).GetCallDataMap()),
+		Tile:     tile.ToInt32(),
+		CallData: ToCallData(s.play.GetPlayData(seat).GetCallMap()),
 	}
 	s.SendMsg(ponAck, game.SeatAll)
 }
@@ -152,7 +152,7 @@ func (s *Sender) SendDrawAck(tile Tile) {
 	drawAck := &pbmj.MJDrawAck{
 		Seat:     s.play.GetCurSeat(),
 		Tile:     tile.ToInt32(),
-		CallData: ToCallData(s.play.GetPlayData(s.play.GetCurSeat()).GetCallDataMap()),
+		CallData: ToCallData(s.play.GetPlayData(s.play.GetCurSeat()).GetCallMap()),
 	}
 	s.SendMsg(drawAck, drawAck.Seat)
 	drawAck.Tile = TileNull.ToInt32()

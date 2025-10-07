@@ -7,6 +7,8 @@ import (
 	"github.com/topfreegames/pitaya/v3/pkg/logger"
 )
 
+var HuCoreInstance *HuCore
+
 type HuCore struct {
 	maxHandCount int
 	mapHuAll     []map[int]TileStyle // 普通牌型表

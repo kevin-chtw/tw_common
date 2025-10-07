@@ -1,25 +1,23 @@
 package mahjong
 
 import (
-	"slices"
-
 	"github.com/sirupsen/logrus"
 )
 
-type IExtraHuTypes interface {
-	SelfExtraFans() []int32
-	PaoExtraFans() []int32
+type IPlay interface {
+	CheckHu(data *HuData) bool
+	GetExtraHuTypes(data *PlayData, self bool) []int32
 }
 
 type Play struct {
-	ExtraHuTypes IExtraHuTypes
+	PlayImp      IPlay
 	PlayConf     *PlayConf
 	game         *Game
-	dealer       *Dealer
 	curSeat      int32
 	curTile      Tile
 	banker       int32
-	tilesLai     []Tile
+	dealer       *Dealer
+	tilesLai     map[Tile]struct{}
 	history      []Action
 	playData     []*PlayData
 	huSeats      []int32
@@ -28,14 +26,15 @@ type Play struct {
 	waitcheckers []CheckerWait
 }
 
-func NewPlay(game *Game, dealer *Dealer) *Play {
+func NewPlay(playImp IPlay, game *Game, dealer *Dealer) *Play {
 	return &Play{
+		PlayImp:      playImp,
 		game:         game,
 		dealer:       dealer,
 		curSeat:      SeatNull,
 		curTile:      TileNull,
 		banker:       SeatNull,
-		tilesLai:     make([]Tile, 0),
+		tilesLai:     make(map[Tile]struct{}),
 		history:      make([]Action, 0),
 		playData:     make([]*PlayData, game.GetPlayerCount()),
 		huSeats:      make([]int32, 0),
@@ -94,7 +93,7 @@ func (p *Play) FetchSelfOperates() *Operates {
 
 	tips := make([]int, 0)
 	for _, v := range p.selfCheckers {
-		tips = v.Check(p, opt, tips)
+		tips = v.Check(opt, tips)
 	}
 
 	if len(tips) > 0 {
@@ -112,7 +111,7 @@ func (p *Play) FetchWaitOperates(seat int32) *Operates {
 
 	tips := make([]int, 0)
 	for _, v := range p.waitcheckers {
-		tips = v.Check(p, seat, opt, tips)
+		tips = v.Check(seat, opt, tips)
 	}
 
 	if len(tips) > 0 {
@@ -131,10 +130,10 @@ func (p *Play) Ting(tile Tile) bool {
 		return false
 	}
 	if playData.Discard(tile) {
-		p.curTile = tile
 		playData.ting = true
-		p.addHistory(p.curSeat, p.curTile, OperateTing, 0)
-		p.freshCallData(p.curSeat)
+		p.addHistory(p.curSeat, OperateTing, p.curTile, 0)
+		p.freshTingMuti(p.curSeat)
+		p.curTile = tile
 		return true
 	}
 	return false
@@ -151,9 +150,9 @@ func (p *Play) Discard(tile Tile) bool {
 	}
 
 	if playData.Discard(tile) {
-		p.curTile = tile
-		p.addHistory(p.curSeat, p.curTile, OperateDiscard, 0)
+		p.addHistory(p.curSeat, OperateDiscard, p.curTile, 0)
 		p.freshCallData(p.curSeat)
+		p.curTile = tile
 		return true
 	}
 	return false
@@ -167,7 +166,7 @@ func (p *Play) ZhiKon(seat int32) {
 	}
 	playData.kon(p.curTile, p.curSeat, KonTypeZhi)
 	p.playData[p.curSeat].RemoveOutTile()
-	p.addHistory(seat, p.curTile, OperateKon, 0)
+	p.addHistory(seat, OperateKon, p.curTile, 0)
 	p.freshCallData(seat)
 }
 
@@ -177,9 +176,9 @@ func (p *Play) TryKon(tile Tile, konType KonType) bool {
 		return false
 	}
 	playData.kon(tile, p.curSeat, konType)
-	p.curTile = tile
-	p.addHistory(p.curSeat, p.curTile, OperateKon, 0)
+	p.addHistory(p.curSeat, OperateKon, p.curTile, 0)
 	p.freshCallData(p.curSeat)
+	p.curTile = tile
 	return true
 }
 
@@ -191,18 +190,68 @@ func (p *Play) Pon(seat int32) {
 	}
 	playData.Pon(p.curTile, p.curSeat)
 	p.playData[p.curSeat].RemoveOutTile()
-	p.addHistory(seat, p.curTile, OperatePon, 0)
+	p.addHistory(seat, OperatePon, p.curTile, 0)
 	p.freshCallData(seat)
+}
+
+func (p *Play) PonTing(seat int32, disTile Tile) {
+	playData := p.playData[seat]
+	if !playData.canPon(p.curTile, p.PlayConf.CanotOnlyLaiAfterPon) {
+		logrus.Error("player cannot pon")
+		return
+	}
+
+	huData := NewHuData(playData, false)
+	huData.Tiles = RemoveElements(huData.Tiles, p.curTile, 2)
+	callData := huData.CheckCall()
+	if _, ok := callData[disTile]; !ok {
+		logrus.Error("player cannot ting")
+		return
+	}
+
+	if playData.Discard(disTile) {
+		playData.Pon(p.curTile, p.curSeat)
+		p.addHistory(seat, OperatePonTing, p.curTile, disTile)
+		p.freshTingMuti(seat)
+		p.curTile = disTile
+	}
 }
 
 func (p *Play) Chow(seat int32, leftTile Tile) {
 	playData := p.playData[seat]
-	if playData.TryChow(p.curTile, leftTile, p.curSeat) {
-		p.playData[p.curSeat].RemoveOutTile()
-		p.addHistory(seat, leftTile, OperateChow, int(p.curTile))
-		p.freshCallData(seat)
-	} else {
+	tiles, ok := playData.tryChow(p.curTile, leftTile)
+	if !ok {
 		logrus.Error("player cannot chow")
+	}
+
+	playData.chow(tiles, p.curTile, leftTile, seat)
+	p.playData[p.curSeat].RemoveOutTile()
+	p.addHistory(seat, OperateChow, p.curTile, leftTile)
+	p.freshCallData(seat)
+}
+
+func (p *Play) ChowTing(seat int32, leftTile, disTile Tile) {
+	playData := p.playData[seat]
+	tiles, ok := playData.tryChow(p.curTile, leftTile)
+	if !ok {
+		logrus.Error("player cannot chow")
+	}
+
+	huData := NewHuData(playData, false)
+	for _, tile := range tiles {
+		huData.Tiles = RemoveElements(huData.Tiles, tile, 1)
+	}
+	callData := huData.CheckCall()
+	if _, ok := callData[disTile]; !ok {
+		logrus.Error("player cannot ting")
+		return
+	}
+
+	if playData.Discard(disTile) {
+		playData.chow(tiles, p.curTile, leftTile, seat)
+		p.addHistory(seat, OperatePonTing, p.curTile, disTile)
+		p.freshTingMuti(seat)
+		p.curTile = disTile
 	}
 }
 
@@ -219,7 +268,7 @@ func (p *Play) Zimo() (multiples []int64) {
 	}
 
 	p.huSeats = append(p.huSeats, p.curSeat)
-	p.addHistory(p.curSeat, p.curTile, OperateHu, 0)
+	p.addHistory(p.curSeat, OperateHu, p.curTile, 0)
 	return
 }
 
@@ -232,7 +281,7 @@ func (p *Play) PaoHu(huSeats []int32) []int64 {
 		multiples[p.curSeat] -= multi
 		if !p.game.GetPlayer(seat).IsOut() {
 			multiples[seat] = +multi
-			p.addHistory(p.curSeat, p.curTile, OperateHu, 0)
+			p.addHistory(p.curSeat, OperateHu, p.curTile, 0)
 		}
 	}
 	p.huSeats = append(p.huSeats, huSeats...)
@@ -243,7 +292,7 @@ func (p *Play) Draw() Tile {
 	tile := p.dealer.DrawTile()
 	if tile != TileNull {
 		p.playData[p.curSeat].PutHandTile(tile)
-		p.addHistory(p.curSeat, tile, OperateDraw, 0)
+		p.addHistory(p.curSeat, OperateDraw, tile, 0)
 		p.freshCallData(p.curSeat)
 	}
 	return tile
@@ -273,6 +322,10 @@ func (p *Play) GetCurTile() Tile {
 	return p.curTile
 }
 
+func (p *Play) GetRule() *Rule {
+	return p.game.rule
+}
+
 func (p *Play) HasOperate(seat int32) bool {
 	for _, action := range p.history {
 		if action.Seat == seat {
@@ -280,6 +333,13 @@ func (p *Play) HasOperate(seat int32) bool {
 		}
 	}
 	return false
+}
+
+func (p *Play) AddHuOperate(opt *Operates, seat int32, result *HuResult, mustHu bool) {
+	opt.Capped = p.PlayConf.IsTopMultiple(result.TotalMuti)
+	p.huResult[seat] = result
+	opt.AddOperate(OperateHu)
+	opt.IsMustHu = mustHu
 }
 
 func (p *Play) getLastGameData() *LastGameData {
@@ -296,21 +356,14 @@ func (p *Play) getLastGameData() *LastGameData {
 	return lgd
 }
 
-func (p *Play) addHistory(seat int32, tile Tile, operate int, extra int) {
+func (p *Play) addHistory(seat int32, operate int, tile Tile, extra Tile) {
 	action := Action{
 		Seat:    seat,
-		Tile:    tile,
 		Operate: operate,
+		Tile:    tile,
 		Extra:   extra,
 	}
 	p.history = append(p.history, action)
-}
-
-func (p *Play) addHuOperate(opt *Operates, seat int32, result *HuResult, mustHu bool) {
-	opt.Capped = p.PlayConf.IsTopMultiple(result.TotalMuti)
-	p.huResult[seat] = result
-	opt.AddOperate(OperateHu)
-	opt.IsMustHu = mustHu
 }
 
 func (p *Play) isKonAfterPon(tile Tile) bool {
@@ -330,16 +383,12 @@ func (p *Play) checkMustHu(seat int32) bool {
 		return false
 	}
 	playData := p.playData[seat]
-
-	if p.isAllLai(playData.handTiles) || playData.ting && slices.Contains(p.tilesLai, playData.handTiles[len(playData.handTiles)-1]) {
-		return true
-	}
-	return false
+	return p.isAllLai(playData.handTiles)
 }
 
 func (p *Play) isAllLai(tiles []Tile) bool {
 	for _, tile := range tiles {
-		if !slices.Contains(p.tilesLai, tile) {
+		if _, ok := p.tilesLai[tile]; ok {
 			return false
 		}
 	}
@@ -347,7 +396,15 @@ func (p *Play) isAllLai(tiles []Tile) bool {
 }
 
 func (p *Play) freshCallData(seat int32) {
-	playData := p.playData[seat]
-	data := playData.MakeHuData()
-	playData.SetCallData(Service.CheckCall(data, p.game.rule))
+	playData := p.GetPlayData(seat)
+	if !playData.IsTing() {
+		data := NewHuData(playData, false)
+		playData.SetCallMap(data.CheckCall())
+	}
+}
+
+func (p *Play) freshTingMuti(seat int32) {
+	playData := p.GetPlayData(seat)
+	data := NewHuData(playData, false)
+	playData.SetCallData(data.checkCalls())
 }

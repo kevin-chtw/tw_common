@@ -1,6 +1,7 @@
 package mahjong
 
 import (
+	"maps"
 	"slices"
 
 	"github.com/topfreegames/pitaya/v3/pkg/logger"
@@ -27,8 +28,10 @@ type ChowGroup struct {
 }
 
 type PlayData struct {
-	play            *Play
-	callDataMap     map[Tile]map[Tile]int64
+	Play            *Play
+	seat            int32
+	callDataMap     map[Tile]map[Tile]int64 //听牌(出牌前)
+	callData        map[Tile]int64          //听牌(出牌后)
 	ting            bool
 	tianTing        bool
 	handTiles       []Tile
@@ -51,8 +54,10 @@ type PlayData struct {
 
 func NewPlayData(p *Play, seat int32) *PlayData {
 	return &PlayData{
-		play:         p,
+		Play:         p,
+		seat:         seat,
 		callDataMap:  make(map[Tile]map[Tile]int64),
+		callData:     make(map[Tile]int64),
 		handTiles:    make([]Tile, 0),
 		outTiles:     make([]Tile, 0),
 		canGangTiles: make([]Tile, 0),
@@ -65,30 +70,24 @@ func NewPlayData(p *Play, seat int32) *PlayData {
 	}
 }
 
-func (p *PlayData) MakeHuData() *HuData {
-	data := &HuData{
-		tilesForChowLeft: p.tilesForChowLeft(),
-		tilesForPon:      p.tilesForPon(),
-		isTing:           p.ting,
-		canTing:          true,
-		LaiCount:         0,
-	}
-	if len(p.play.tilesLai) != 0 {
-		data.Tiles, data.LaiCount = removeLaiZi(p.handTiles, p.play.tilesLai...)
-	} else {
-		data.Tiles = slices.Clone(p.handTiles)
-	}
-
-	data.tilesForKon, data.countAnKon = p.tilesForKon()
-	return data
+func (p *PlayData) SetCallMap(callMap map[Tile]map[Tile]int64) {
+	p.callDataMap = callMap
 }
 
-func (p *PlayData) SetCallData(callData map[Tile]map[Tile]int64) {
-	p.callDataMap = callData
-}
-
-func (p *PlayData) GetCallDataMap() map[Tile]map[Tile]int64 {
+func (p *PlayData) GetCallMap() map[Tile]map[Tile]int64 {
 	return p.callDataMap
+}
+
+func (p *PlayData) SetCallData(callData map[Tile]int64) {
+	p.callData = callData
+}
+
+func (p *PlayData) GetCallData() map[Tile]int64 {
+	return p.callData
+}
+
+func (p *PlayData) GetSeat() int32 {
+	return p.seat
 }
 
 func (p *PlayData) canTing(tile Tile) bool {
@@ -105,6 +104,10 @@ func (p *PlayData) Discard(tile Tile) bool {
 	p.handTiles = RemoveElements(p.handTiles, tile, 1)
 	logger.Log.Info(p.handTiles)
 	p.PutOutTile(tile)
+	p.callData = make(map[Tile]int64)
+	if callMap, ok := p.callDataMap[tile]; ok {
+		maps.Copy(p.callData, callMap)
+	}
 	return true
 }
 
@@ -158,7 +161,7 @@ func (p *PlayData) canPon(tile Tile, cantOnlyLaiAfterPon bool) bool {
 	if CountElement(p.handTiles, tile) < 2 {
 		return false
 	}
-	if cantOnlyLaiAfterPon && p.play.isAllLai(RemoveElements(p.handTiles, tile, 2)) {
+	if cantOnlyLaiAfterPon && p.Play.isAllLai(RemoveElements(p.handTiles, tile, 2)) {
 		return false
 	}
 	return true
@@ -242,24 +245,27 @@ func (p *PlayData) IsBanQiHuFanTip() bool {
 	return p.qiHuFanLimitTip
 }
 
-func (p *PlayData) TryChow(curTile, tile Tile, from int32) bool {
+func (p *PlayData) tryChow(curTile, tile Tile) ([]Tile, bool) {
+	tiles := make([]Tile, 0)
+
 	color, point := tile.Info()
 	if color != curTile.Color() || curTile.Point()-point >= 3 {
-		return false
+		return tiles, false
 	}
-
-	tiles := make([]Tile, 0)
 	for i := range 3 {
 		t := MakeTile(color, point+i)
 		if t == curTile {
 			continue
 		}
 		if !slices.Contains(p.handTiles, t) {
-			return false
+			return tiles, false
 		}
 		tiles = append(tiles, t)
 	}
+	return tiles, true
+}
 
+func (p *PlayData) chow(tiles []Tile, curTile, tile Tile, from int32) {
 	for _, t := range tiles {
 		p.RemoveHandTile(t, 1)
 	}
@@ -270,7 +276,6 @@ func (p *PlayData) TryChow(curTile, tile Tile, from int32) bool {
 		LeftTile: tile,
 	}
 	p.chowGroups = append(p.chowGroups, group)
-	return true
 }
 
 func (p *PlayData) GetChowGroups() []ChowGroup {
@@ -482,11 +487,11 @@ func (p *PlayData) tilesForKon() (tiles []Tile, countAnKon int32) {
 }
 
 // CanSelfKon 判断是否可以自杠
-func (p *PlayData) canSelfKon(rule *Rule, ignoreTiles []Tile) bool {
+func (p *PlayData) canSelfKon(ignoreTiles map[Tile]struct{}) bool {
 	p.canGangTiles = make([]Tile, 0)
 	counts := make(map[Tile]int)
 	for _, tile := range p.handTiles {
-		if !slices.Contains(ignoreTiles, tile) {
+		if _, ok := ignoreTiles[tile]; !ok {
 			counts[tile]++
 		}
 	}
@@ -514,25 +519,25 @@ func (p *PlayData) canSelfKon(rule *Rule, ignoreTiles []Tile) bool {
 		}
 	}
 
-	if counts[lastTile] == 4 && p.canKonAfterCall(lastTile, KonTypeAn, rule) {
+	if counts[lastTile] == 4 && p.canKonAfterCall(lastTile, KonTypeAn) {
 		p.canGangTiles = append(p.canGangTiles, lastTile)
 		return true
 	}
 	return false
 }
 
-func (p *PlayData) canKonAfterCall(tile Tile, konType KonType, rule *Rule) bool {
+func (p *PlayData) canKonAfterCall(tile Tile, konType KonType) bool {
 	if KonTypeZhi != konType && tile != p.handTiles[len(p.handTiles)-1] {
 		return false
 	}
 
-	hudata := NewCheckHuData(p.play, p, false)
+	hudata := NewHuData(p, false)
 	if KonTypeZhi != konType {
 		hudata.Tiles = hudata.Tiles[:len(hudata.Tiles)-1]
 	}
-	call0 := Service.CheckCall(hudata, rule)
+	call0 := hudata.CheckCall()
 	hudata.Tiles = RemoveAllElement(hudata.Tiles, tile)
-	call1 := Service.CheckCall(hudata, rule)
+	call1 := hudata.CheckCall()
 	if len(call0) != 1 || len(call1) != 1 {
 		return false
 	}

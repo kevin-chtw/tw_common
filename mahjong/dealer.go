@@ -25,7 +25,7 @@ func (d *Dealer) GetGame() *Game {
 }
 
 func (d *Dealer) Initialize() {
-	tiles := Service.GetAllTiles(d.game.rule)
+	tiles := Service.GetAllTiles(d.game.GetRule())
 	// 预计算总牌数并一次性分配
 	total := 0
 	for _, count := range tiles {

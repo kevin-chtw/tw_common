@@ -152,7 +152,7 @@ func GetNextSeat(seat, step, seatCount int32) int32 {
 
 type Action struct {
 	Seat    int32
-	Tile    Tile
 	Operate int
-	Extra   int
+	Tile    Tile
+	Extra   Tile
 }

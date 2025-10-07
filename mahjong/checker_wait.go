@@ -4,73 +4,79 @@ import "slices"
 
 // CheckerWait 定义检查接口
 type CheckerWait interface {
-	Check(play *Play, seat int32, opt *Operates, tips []int) []int
+	Check(seat int32, opt *Operates, tips []int) []int
 }
 
-type CheckerPao struct{}      // 点炮检查器
-type CheckerChow struct{}     // 吃牌检查器
-type CheckerPon struct{}      // 碰牌检查器
-type CheckerZhiKon struct{}   // 直杠检查器
-type CheckerChowTing struct{} // 吃听检查器
-type CheckerPonTing struct{}  // 碰听检查器
-
-func (c *CheckerPao) Check(play *Play, seat int32, opt *Operates, tips []int) []int {
-	if play.PlayConf.OnlyZimo {
+type CheckerPao struct{ play *Play } // 点炮检查器
+func NewCheckerPao(play *Play) CheckerWait {
+	return &CheckerPao{play: play}
+}
+func (c *CheckerPao) Check(seat int32, opt *Operates, tips []int) []int {
+	if c.play.PlayConf.OnlyZimo {
 		tips = append(tips, TipsOnlyZiMo)
 	}
 
-	data := NewCheckHuData(play, play.playData[seat], false)
-	result, hu := Service.CheckHu(data, play.game.rule)
+	data := NewHuData(c.play.playData[seat], false)
+	result, hu := data.CheckHu()
 	if !hu {
 		return tips
 	}
 
-	if play.PlayConf.MustHu {
-		play.addHuOperate(opt, seat, result, true)
-	} else if play.playData[seat].IsPassHuTile(play.curTile) && play.PlayConf.HuPass {
+	if c.play.PlayConf.MustHu {
+		c.play.AddHuOperate(opt, seat, result, true)
+	} else if c.play.playData[seat].IsPassHuTile(c.play.curTile) && c.play.PlayConf.HuPass {
 		tips = append(tips, TipsPassHu)
-	} else if result.TotalMuti < play.PlayConf.MinMultipleLimit {
+	} else if result.TotalMuti < c.play.PlayConf.MinMultipleLimit {
 		tips = append(tips, TipsQiHuFan)
 	} else {
-		play.addHuOperate(opt, seat, result, true)
+		c.play.AddHuOperate(opt, seat, result, true)
 	}
 	return tips
 }
 
-func (c *CheckerChow) Check(play *Play, seat int32, opt *Operates, tips []int) []int {
+type CheckerChow struct{ play *Play } // 吃牌检查器
+func NewCheckerChow(play *Play) CheckerWait {
+	return &CheckerChow{play: play}
+}
+
+func (c *CheckerChow) Check(seat int32, opt *Operates, tips []int) []int {
 	if opt.IsMustHu {
 		return tips
 	}
-	playData := play.playData[seat]
+	playData := c.play.playData[seat]
 	if playData.ting {
 		return tips
 	}
 
-	if GetNextSeat(play.curSeat, 1, play.game.GetPlayerCount()) != seat {
+	if GetNextSeat(c.play.curSeat, 1, c.play.game.GetPlayerCount()) != seat {
 		return tips
 	}
 
-	if playData.canChow(play.curTile) {
+	if playData.canChow(c.play.curTile) {
 		opt.AddOperate(OperateChow)
 	}
 	return tips
 }
 
-func (c *CheckerPon) Check(play *Play, seat int32, opt *Operates, tips []int) []int {
+type CheckerPon struct{ play *Play } // 碰牌检查器
+func NewCheckerPon(play *Play) CheckerWait {
+	return &CheckerPon{play: play}
+}
+func (c *CheckerPon) Check(seat int32, opt *Operates, tips []int) []int {
 	if opt.IsMustHu {
 		return tips
 	}
-	playData := play.playData[seat]
+	playData := c.play.playData[seat]
 	if playData.ting {
 		return tips
 	}
 
 	tmpOpr := &Operates{}
-	if playData.canPon(play.curTile, play.PlayConf.CanotOnlyLaiAfterPon) {
+	if playData.canPon(c.play.curTile, c.play.PlayConf.CanotOnlyLaiAfterPon) {
 		tmpOpr.AddOperate(OperatePon)
 	}
 
-	if !playData.IsPassPonTile(play.curTile) || !play.PlayConf.PonPass {
+	if !playData.IsPassPonTile(c.play.curTile) || !c.play.PlayConf.PonPass {
 		opt.AddOperates(tmpOpr)
 	} else if tmpOpr.Value != 0 {
 		tips = append(tips, TipsPassPon)
@@ -78,49 +84,57 @@ func (c *CheckerPon) Check(play *Play, seat int32, opt *Operates, tips []int) []
 	return tips
 }
 
-func (c *CheckerZhiKon) Check(play *Play, seat int32, opt *Operates, tips []int) []int {
+type CheckerZhiKon struct{ play *Play } // 直杠检查器
+func NewCheckerZhiKon(play *Play) CheckerWait {
+	return &CheckerZhiKon{play: play}
+}
+func (c *CheckerZhiKon) Check(seat int32, opt *Operates, tips []int) []int {
 	if opt.IsMustHu {
 		return tips
 	}
-	if play.dealer.GetRestCount() <= 0 {
+	if c.play.dealer.GetRestCount() <= 0 {
 		return tips
 	}
 
-	playData := play.playData[seat]
-	if playData.canKon(play.curTile, KonTypeZhi) {
+	playData := c.play.playData[seat]
+	if playData.canKon(c.play.curTile, KonTypeZhi) {
 		opt.AddOperate(OperateKon)
 	}
 	return tips
 }
 
-func (c *CheckerChowTing) Check(play *Play, seat int32, opt *Operates, tips []int) []int {
+type CheckerChowTing struct{ play *Play } // 吃听检查器
+func NewCheckerChowTing(play *Play) CheckerWait {
+	return &CheckerChowTing{play: play}
+}
+func (c *CheckerChowTing) Check(seat int32, opt *Operates, tips []int) []int {
 	if opt.IsMustHu {
 		return tips
 	}
-	playData := play.playData[seat]
+	playData := c.play.playData[seat]
 	if playData.ting {
 		return tips
 	}
 
-	if !playData.canChow(play.curTile) {
+	if !playData.canChow(c.play.curTile) {
 		return tips
 	}
 
-	huData := NewCheckHuData(play, play.playData[play.curSeat], true)
-	leftPoint := max(0, play.curTile.Point()-2)
-	color := play.curTile.Color()
+	huData := NewHuData(c.play.playData[c.play.curSeat], false)
+	leftPoint := max(0, c.play.curTile.Point()-2)
+	color := c.play.curTile.Color()
 
 	for p := leftPoint; p < leftPoint+3; p++ {
 		tiles := make([]Tile, 0)
 		for i := range 3 {
 			tile := MakeTile(color, p+i)
-			if tile != play.curTile && slices.Contains(playData.handTiles, tile) {
+			if tile != c.play.curTile && slices.Contains(playData.handTiles, tile) {
 				huData.Tiles = RemoveElements(huData.Tiles, tile, 1)
 				tiles = append(tiles, tile)
 			}
 		}
 		if len(tiles) == 2 {
-			callData := Service.CheckCall(huData, play.game.rule)
+			callData := huData.CheckCall()
 			if len(callData) > 0 {
 				opt.AddOperate(OperateChowTing)
 				return tips
@@ -131,14 +145,19 @@ func (c *CheckerChowTing) Check(play *Play, seat int32, opt *Operates, tips []in
 	return tips
 }
 
-func (c *CheckerPonTing) Check(play *Play, seat int32, opt *Operates, tips []int) []int {
+type CheckerPonTing struct{ play *Play } // 碰听检查器
+func NewCheckerPonTing(play *Play) CheckerWait {
+	return &CheckerPonTing{play: play}
+}
+
+func (c *CheckerPonTing) Check(seat int32, opt *Operates, tips []int) []int {
 	if !opt.HasOperate(OperatePon) {
 		return tips
 	}
 
-	huData := NewCheckHuData(play, play.playData[play.curSeat], true)
-	huData.Tiles = RemoveElements(huData.Tiles, play.curTile, 2)
-	callData := Service.CheckCall(huData, play.game.rule)
+	huData := NewHuData(c.play.playData[c.play.curSeat], false)
+	huData.Tiles = RemoveElements(huData.Tiles, c.play.curTile, 2)
+	callData := huData.CheckCall()
 	if len(callData) > 0 {
 		opt.AddOperate(OperatePonTing)
 	}

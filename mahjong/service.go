@@ -1,11 +1,16 @@
 package mahjong
 
-var Service IService
+const defaultHandCount = 14
+
+var (
+	Service       IService
+	DefaultHuCore = NewHuCore(defaultHandCount)
+)
 
 type IService interface {
 	GetAllTiles(conf *Rule) map[Tile]int
 	GetHandCount() int
 	GetDefaultRules() []int
-	CheckHu(data *HuData, rule *Rule) (*HuResult, bool)
-	CheckCall(data *HuData, rule *Rule) map[Tile]map[Tile]int64
+	GetHuTypes(data *HuData) []int32
+	TotalMuti(types []int32) int64
 }
