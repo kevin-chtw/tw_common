@@ -87,6 +87,9 @@ func (d *Dealer) SwapLastTile() Tile {
 			break
 		}
 	}
+	if i < 0 {
+		return TileNull
+	}
 	d.tileWall[len(d.tileWall)-1], d.tileWall[i] = d.tileWall[i], d.tileWall[len(d.tileWall)-1]
 	return d.LastTile()
 }

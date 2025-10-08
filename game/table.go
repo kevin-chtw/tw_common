@@ -338,7 +338,6 @@ func (t *Table) Send2Player(ack proto.Message, seat int32) {
 	if err != nil {
 		logrus.Error(err.Error())
 	}
-	logger.Log.Infof("len=%d ,data: %v", len(data), data)
 	tablemsg := &cproto.TableMsgAck{
 		Msg: data,
 	}
@@ -409,8 +408,6 @@ func (t *Table) sendMsg(msg *cproto.GameAck, uids []string) {
 	} else {
 		logger.Log.Infof("player %v msg %v", uids, msg)
 	}
-	dataMsg, _ := proto.Marshal(msg)
-	logger.Log.Infof("dataMsglen=%d ,dataMsg: %v", len(dataMsg), dataMsg)
 	if _, err := t.app.SendPushToUsers(t.app.GetServer().Type, msg, uids, "proxy"); err != nil {
 		logger.Log.Errorf("player %v failed: %v", uids, err)
 	}
