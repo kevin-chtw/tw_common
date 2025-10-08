@@ -26,7 +26,7 @@ func NewPlayer(game *Game, player *game.Player) *Player {
 		player:      player,
 		game:        game,
 		tax:         0,
-		score:       int64(player.Score),
+		score:       player.GetScore(),
 		scoreChange: 0,
 	}
 }
@@ -93,7 +93,7 @@ func (p *Player) GetTax() int64 {
 }
 
 func (p *Player) SyncGameResult() {
-	// 同步游戏结果
+	p.player.AddScore(p.scoreChange)
 }
 
 func (p *Player) AddOperateEvent(chowCount, ponCount, konCount int, isCall bool) {

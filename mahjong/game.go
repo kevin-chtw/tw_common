@@ -67,7 +67,10 @@ func (g *Game) OnGameTimer() {
 }
 
 func (g *Game) OnGameOver() {
-	g.Table.NotifyGameOver(g.id)
+	for i := int32(0); i < g.GetPlayerCount(); i++ {
+		g.GetPlayer(i).SyncGameResult()
+	}
+	g.NotifyGameOver(g.id)
 }
 
 func (g *Game) OnNetChange(player *game.Player, offline bool) {

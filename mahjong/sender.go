@@ -164,6 +164,19 @@ func (s *Sender) SendDrawAck(tile Tile) {
 	}
 }
 
+func (s *Sender) SendTrustAck(seat int32, trust bool) {
+	player := s.game.GetPlayer(seat)
+	if player.IsTrusted() == trust {
+		return
+	}
+	player.SetTrusted(trust)
+	ack := &pbmj.MJTrustAck{
+		Seat:  seat,
+		Trust: trust,
+	}
+	s.SendMsg(ack, seat)
+}
+
 func (s *Sender) SendResult(liuju bool) {
 	resultAck := &pbmj.MJResultAck{
 		Liuju:         liuju,

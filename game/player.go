@@ -18,8 +18,8 @@ const (
 type Player struct {
 	id     string // 玩家唯一ID
 	Seat   int32  // 座位号
-	Score  int64  // 玩家积分
 	Status int    // 玩家状态
+	score  int64  // 玩家积分
 	online bool   // 玩家是否在线
 }
 
@@ -39,7 +39,11 @@ func (p *Player) SetSeat(seatNum int32) {
 
 // AddScore 增加玩家积分
 func (p *Player) AddScore(delta int64) {
-	p.Score += delta
+	p.score += delta
+}
+
+func (p *Player) GetScore() int64 {
+	return p.score
 }
 
 // HandleMessage 处理玩家消息

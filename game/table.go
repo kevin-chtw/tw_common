@@ -288,7 +288,7 @@ func (t *Table) NotifyGameOver(gameId int32) {
 		for _, p := range t.players {
 			result.Players = append(result.Players, &sproto.PlayerResult{
 				Playerid: p.id,
-				Score:    p.Score,
+				Score:    p.score,
 			})
 		}
 		t.Send2Match(result)

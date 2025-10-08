@@ -120,7 +120,7 @@ func (c *CheckerChowTing) Check(seat int32, opt *Operates, tips []int) []int {
 		return tips
 	}
 
-	huData := NewHuData(c.play.playData[c.play.curSeat], false)
+	huData := NewHuData(playData, false)
 	leftPoint := max(0, c.play.curTile.Point()-2)
 	color := c.play.curTile.Color()
 
@@ -155,7 +155,7 @@ func (c *CheckerPonTing) Check(seat int32, opt *Operates, tips []int) []int {
 		return tips
 	}
 
-	huData := NewHuData(c.play.playData[c.play.curSeat], false)
+	huData := NewHuData(c.play.playData[seat], false)
 	huData.Tiles = RemoveElements(huData.Tiles, c.play.curTile, 2)
 	callData := huData.CheckCall()
 	if len(callData) > 0 {
