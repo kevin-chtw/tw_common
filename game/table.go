@@ -28,12 +28,12 @@ type IGame interface {
 
 // Table 表示一个游戏桌实例
 type Table struct {
+	MatchType     string             //
 	matchID       int32              // 比赛ID
 	tableID       int32              // 桌号
 	matchServerId string             // 匹配服务ID
 	players       map[string]*Player // 玩家ID -> Player
 	app           pitaya.Pitaya
-	matchType     string           //
 	scoreBase     int64            // 分数基数
 	gameCount     int32            // 游戏局数
 	curGameCount  int32            // 当前局数
@@ -223,7 +223,7 @@ func (t *Table) isAllPlayersReady() bool {
 func (t *Table) HandleAddTable(ctx context.Context, msg proto.Message) (proto.Message, error) {
 	req := msg.(*sproto.AddTableReq)
 
-	t.matchType = req.GetMatchType()
+	t.MatchType = req.GetMatchType()
 	t.scoreBase = int64(req.GetScoreBase())
 	t.gameCount = req.GetGameCount()
 	t.playerCount = req.GetPlayerCount()
@@ -327,7 +327,7 @@ func (t *Table) Send2Match(msg proto.Message) {
 		Ack:     data,
 	}
 	req := &sproto.Match2GameReq{}
-	if err := t.app.RPCTo(context.Background(), t.matchServerId, t.matchType+".game.message", req, ack); err != nil {
+	if err := t.app.RPCTo(context.Background(), t.matchServerId, t.MatchType+".game.message", req, ack); err != nil {
 		logger.Log.Error(err.Error())
 	}
 }
