@@ -303,7 +303,7 @@ func (p *PlayData) HasPon(tile Tile) bool {
 
 func (p *PlayData) kon(tile Tile, from int32, konType KonType) {
 	if konType == KonTypeBu {
-		p.buKon(tile, false, false)
+		p.buKon(tile, p.Play.isKonAfterPon(tile), false)
 	} else {
 		p.anZhiKon(tile, from, konType)
 	}
@@ -459,7 +459,19 @@ func (p *PlayData) GetDrawRate() int {
 	return p.drawRate
 }
 
-func (p *PlayData) tilesForChowLeft() []Tile {
+func (p *PlayData) IsMenQin() bool {
+	if len(p.chowGroups) > 0 || len(p.ponGroups) > 0 {
+		return false
+	}
+	for _, group := range p.konGroups {
+		if group.Type != KonTypeAn {
+			return false
+		}
+	}
+	return true
+}
+
+func (p *PlayData) ChowLeftTiles() []Tile {
 	tiles := make([]Tile, len(p.chowGroups))
 	for i, group := range p.chowGroups {
 		tiles[i] = group.LeftTile
@@ -467,7 +479,7 @@ func (p *PlayData) tilesForChowLeft() []Tile {
 	return tiles
 }
 
-func (p *PlayData) tilesForPon() []Tile {
+func (p *PlayData) PonTiles() []Tile {
 	tiles := make([]Tile, len(p.ponGroups))
 	for i, group := range p.ponGroups {
 		tiles[i] = group.Tile
@@ -475,7 +487,7 @@ func (p *PlayData) tilesForPon() []Tile {
 	return tiles
 }
 
-func (p *PlayData) tilesForKon() (tiles []Tile, countAnKon int32) {
+func (p *PlayData) KonTiles() (tiles []Tile, countAnKon int32) {
 	tiles = make([]Tile, len(p.konGroups))
 	for i, group := range p.konGroups {
 		tiles[i] = group.Tile

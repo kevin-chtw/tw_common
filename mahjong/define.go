@@ -78,10 +78,11 @@ const (
 )
 
 const (
-	TipsPassHu   = iota // 过胡
-	TipsPassPon         // 过碰
-	TipsQiHuFan         // 起胡番
-	TipsOnlyZiMo        // 只自摸
+	TipsPassHu   = iota // 过胡 0
+	TipsPassPon         // 过碰 1
+	TipsQiHuFan         // 起胡番 2
+	TipsOnlyZiMo        // 只自摸 3
+	TipsMenQin          // 未开门 4
 )
 
 type EPlayerType int

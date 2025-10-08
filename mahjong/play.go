@@ -175,6 +175,7 @@ func (p *Play) TryKon(tile Tile, konType KonType) bool {
 	if !playData.canKon(tile, konType) {
 		return false
 	}
+
 	playData.kon(tile, p.curSeat, konType)
 	p.addHistory(p.curSeat, OperateKon, p.curTile, 0)
 	p.freshCallData(p.curSeat)

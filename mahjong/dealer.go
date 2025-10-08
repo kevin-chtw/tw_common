@@ -78,10 +78,25 @@ func (d *Dealer) LastTile() Tile {
 }
 
 func (d *Dealer) SwapLastTile() Tile {
-	if len(d.tileWall) < 2 {
+	if len(d.tileWall) < 4 {
 		return TileNull
 	}
-	i := rand.Intn(len(d.tileWall) - 1)
+	i := len(d.tileWall) - 1
+	for ; i >= 0; i-- {
+		if d.Count(d.tileWall[i]) > 1 {
+			break
+		}
+	}
 	d.tileWall[len(d.tileWall)-1], d.tileWall[i] = d.tileWall[i], d.tileWall[len(d.tileWall)-1]
 	return d.LastTile()
+}
+
+func (d *Dealer) Count(tile Tile) int {
+	count := 0
+	for _, t := range d.tileWall {
+		if t == tile {
+			count++
+		}
+	}
+	return count
 }
