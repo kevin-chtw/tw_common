@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"runtime/debug"
 
 	"github.com/kevin-chtw/tw_common/game"
 	"github.com/kevin-chtw/tw_common/utils"
@@ -42,10 +43,9 @@ func (m *Match) Init() {
 func (m *Match) Message(ctx context.Context, req *sproto.Match2GameReq) (*sproto.Match2GameAck, error) {
 	defer func() {
 		if r := recover(); r != nil {
-			logger.Log.Errorf("panic recovered: %v", r)
+			logger.Log.Errorf("panic recovered %s\n %s", r, string(debug.Stack()))
 		}
 	}()
-
 	if req == nil {
 		return nil, errors.New("nil request")
 	}

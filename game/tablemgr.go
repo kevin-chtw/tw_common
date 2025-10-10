@@ -1,11 +1,13 @@
 package game
 
 import (
+	"runtime/debug"
 	"strconv"
 	"sync"
 	"time"
 
 	pitaya "github.com/topfreegames/pitaya/v3/pkg"
+	"github.com/topfreegames/pitaya/v3/pkg/logger"
 )
 
 // TableManager 管理游戏桌
@@ -33,6 +35,11 @@ func NewTableManager(app pitaya.Pitaya) *TableManager {
 }
 
 func (t *TableManager) tick() {
+	defer func() {
+		if r := recover(); r != nil {
+			logger.Log.Errorf("panic recovered %s\n %s", r, string(debug.Stack()))
+		}
+	}()
 	t.mu.RLock()
 	defer t.mu.RUnlock()
 	for _, table := range t.tables {

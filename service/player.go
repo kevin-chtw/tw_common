@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"runtime/debug"
 
 	"github.com/kevin-chtw/tw_common/game"
 	"github.com/kevin-chtw/tw_proto/cproto"
@@ -26,10 +27,9 @@ func NewPlayer(app pitaya.Pitaya) *Player {
 func (p *Player) Message(ctx context.Context, req *cproto.GameReq) {
 	defer func() {
 		if r := recover(); r != nil {
-			logger.Log.Errorf("panic recovered: %v", r)
+			logger.Log.Errorf("panic recovered %s\n %s", r, string(debug.Stack()))
 		}
 	}()
-
 	userID := p.app.GetSessionFromCtx(ctx).UID()
 	if userID == "" {
 		logger.Log.Error("user ID not found in session")
