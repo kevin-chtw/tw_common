@@ -11,6 +11,7 @@ type IService interface {
 	GetAllTiles(conf *Rule) map[Tile]int
 	GetHandCount() int
 	GetDefaultRules() []int
+	GetFdRules() map[string]int32
 	GetHuTypes(data *HuData) []int32
 	TotalMuti(types []int32) int64
 }

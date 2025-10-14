@@ -37,6 +37,9 @@ func NewGame(subGame IGame, t *game.Table, id int32) *Game {
 	}
 
 	g.rule.LoadRule(t.GetProperty(), Service.GetDefaultRules())
+	if t.MatchType == "fdtable" {
+		g.rule.LoadFdRule(t.GetFdproperty(), Service.GetFdRules())
+	}
 	for i := int32(0); i < t.GetPlayerCount(); i++ {
 		g.players[i] = NewPlayer(g, t.GetGamePlayer(i))
 	}

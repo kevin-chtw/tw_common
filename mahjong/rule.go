@@ -16,7 +16,7 @@ func NewRule() *Rule {
 }
 
 func (c *Rule) GetValue(index int) int {
-	if int(index) < len(c.values) {
+	if index < len(c.values) {
 		return c.values[index]
 	}
 	return 0
@@ -43,6 +43,14 @@ func (c *Rule) LoadRule(property string, defalt []int) {
 			continue
 		} else if i < len(c.values) {
 			c.values[i] = val
+		}
+	}
+}
+
+func (c *Rule) LoadFdRule(properties, keys map[string]int32) {
+	for k, i := range keys {
+		if v, ok := properties[k]; ok {
+			c.values[i] = int(v)
 		}
 	}
 }

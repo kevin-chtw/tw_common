@@ -380,6 +380,10 @@ func (t *Table) GetProperty() string {
 	return t.property
 }
 
+func (t *Table) GetFdproperty() map[string]int32 {
+	return t.fdproperty
+}
+
 func (t *Table) GetScoreBase() int64 {
 	return int64(t.scoreBase)
 }
