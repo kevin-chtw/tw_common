@@ -52,7 +52,7 @@ func (g *Game) OnGameBegin() {
 }
 
 func (g *Game) OnPlayerMsg(player *game.Player, data []byte) error {
-	seat := player.Seat
+	seat := player.GetSeat()
 	if !g.IsValidSeat(seat) {
 		return errors.New("invalid seat")
 	}
@@ -77,7 +77,7 @@ func (g *Game) OnGameOver() {
 }
 
 func (g *Game) OnNetChange(player *game.Player, offline bool) {
-	if p := g.GetPlayer(player.Seat); p != nil {
+	if p := g.GetPlayer(player.GetSeat()); p != nil {
 		p.isOffline = offline
 		g.enterNextState()
 	}

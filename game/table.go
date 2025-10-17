@@ -97,9 +97,21 @@ func (t *Table) OnPlayerMsg(ctx context.Context, player *Player, req *cproto.Gam
 
 // handleEnterGame 处理玩家进入游戏请求
 func (t *Table) handleEnterGame(player *Player, _ *cproto.GameReq) error {
-	if !t.isOnTable(player.id) {
+	if !t.isOnTable(player.ack.Uid) {
 		return errors.New("player not on table")
 	}
+
+	if len(t.players) >= int(t.playerCount) {
+		return errors.New("table is full")
+	}
+
+	rsp, err := t.send2Account(&sproto.PlayerInfoReq{Uid: player.ack.Uid})
+	if err != nil {
+		return err
+	}
+
+	ack := rsp.(*sproto.PlayerInfoAck)
+	player.setAck(ack)
 
 	if player.Status == PlayerStatusEnter {
 		t.notifyTablePlayer(player, true)
@@ -144,13 +156,9 @@ func (t *Table) handleTableMsg(player *Player, req *cproto.GameReq) error {
 }
 
 func (t *Table) broadcastTablePlayer(player *Player) {
-	ack := &cproto.TablePlayerAck{
-		Playerid: player.id,
-		Seat:     player.Seat,
-	}
-	msg := t.newMsg(ack)
+	msg := t.newMsg(player.ack)
 	t.broadcast(msg)
-	logger.Log.Infof("Player %s added to table %d", player.id, t.tableID)
+	logger.Log.Infof("Player %s added to table %d", player.ack.Uid, t.tableID)
 }
 
 func (t *Table) sendGameBegin() {
@@ -175,15 +183,11 @@ func (t *Table) sendGameOver() {
 
 func (t *Table) notifyTablePlayer(player *Player, resume bool) {
 	for _, p := range t.players {
-		if p.id == player.id && !resume {
+		if p.ack.Uid == player.ack.Uid && !resume {
 			continue
 		}
-		ack := &cproto.TablePlayerAck{
-			Playerid: p.id,
-			Seat:     p.Seat,
-		}
-		msg := t.newMsg(ack)
-		t.sendMsg(msg, []string{player.id})
+		msg := t.newMsg(p.ack)
+		t.sendMsg(msg, []string{player.ack.Uid})
 	}
 }
 
@@ -287,7 +291,7 @@ func (t *Table) NotifyGameOver(gameId int32) {
 
 		for _, p := range t.players {
 			result.Players = append(result.Players, &sproto.PlayerResult{
-				Playerid: p.id,
+				Playerid: p.ack.Uid,
 				Score:    p.score,
 			})
 		}
@@ -304,7 +308,7 @@ func (t *Table) NotifyGameOver(gameId int32) {
 func (t *Table) gameOver() {
 	t.sendGameOver()
 	for _, player := range t.players {
-		playerManager.Delete(player.id) // 从玩家管理器中删除玩家
+		playerManager.Delete(player.ack.Uid) // 从玩家管理器中删除玩家
 	}
 	tableManager.Delete(t.matchID, t.tableID) // 从桌子管理器中删除
 
@@ -312,6 +316,22 @@ func (t *Table) gameOver() {
 	t.gameMutex.Lock()
 	t.game = nil
 	t.gameMutex.Unlock()
+}
+
+func (t *Table) send2Account(msg proto.Message) (proto.Message, error) {
+	logger.Log.Info(msg)
+	data, err := anypb.New(msg)
+	if err != nil {
+		return nil, nil
+	}
+	req := &sproto.AccountReq{
+		Req: data,
+	}
+	ack := &sproto.AccountAck{}
+	if err := t.app.RPC(context.Background(), "account.server.message", ack, req); err != nil {
+		return nil, err
+	}
+	return ack, nil
 }
 
 func (t *Table) Send2Match(msg proto.Message) {
@@ -347,7 +367,7 @@ func (t *Table) Send2Player(ack proto.Message, seat int32) {
 		t.broadcast(msg)
 	} else {
 		p := t.GetGamePlayer(seat)
-		t.sendMsg(msg, []string{p.id})
+		t.sendMsg(msg, []string{p.ack.Uid})
 	}
 }
 
@@ -365,7 +385,7 @@ func (g *Table) IsValidSeat(seat int32) bool {
 
 func (t *Table) GetGamePlayer(seat int32) *Player {
 	for _, p := range t.players {
-		if p.Seat == seat {
+		if p.ack.Seat == seat {
 			return p
 		}
 	}
@@ -400,7 +420,7 @@ func (t *Table) broadcast(msg *cproto.GameAck) {
 	uids := make([]string, 0)
 	for _, player := range t.players {
 		if player.Status != PlayerStatusUnEnter {
-			uids = append(uids, player.id)
+			uids = append(uids, player.ack.Uid)
 		}
 	}
 	t.sendMsg(msg, uids)
@@ -432,15 +452,15 @@ func (t *Table) sendHisMsges(player *Player) {
 	t.historyMutex.Lock()
 	defer t.historyMutex.Unlock()
 
-	if len(t.historyMsg[player.id]) == 0 {
+	if len(t.historyMsg[player.ack.Uid]) == 0 {
 		return
 	}
 
-	t.app.SendPushToUsers(t.app.GetServer().Type, t.newMsg(&cproto.HisBeginAck{}), []string{player.id}, "proxy")
-	if msgs, exists := t.historyMsg[player.id]; exists {
+	t.app.SendPushToUsers(t.app.GetServer().Type, t.newMsg(&cproto.HisBeginAck{}), []string{player.ack.Uid}, "proxy")
+	if msgs, exists := t.historyMsg[player.ack.Uid]; exists {
 		for _, msg := range msgs {
-			t.app.SendPushToUsers(t.app.GetServer().Type, msg, []string{player.id}, "proxy")
+			t.app.SendPushToUsers(t.app.GetServer().Type, msg, []string{player.ack.Uid}, "proxy")
 		}
 	}
-	t.app.SendPushToUsers(t.app.GetServer().Type, t.newMsg(&cproto.HisEndAck{}), []string{player.id}, "proxy")
+	t.app.SendPushToUsers(t.app.GetServer().Type, t.newMsg(&cproto.HisEndAck{}), []string{player.ack.Uid}, "proxy")
 }

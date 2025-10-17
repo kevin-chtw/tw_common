@@ -5,6 +5,7 @@ import (
 	"errors"
 
 	"github.com/kevin-chtw/tw_proto/cproto"
+	"github.com/kevin-chtw/tw_proto/sproto"
 )
 
 const (
@@ -16,34 +17,44 @@ const (
 
 // Player 表示游戏中的玩家
 type Player struct {
-	id     string // 玩家唯一ID
-	Seat   int32  // 座位号
-	Status int    // 玩家状态
-	score  int64  // 玩家积分
-	online bool   // 玩家是否在线
+	ack    *cproto.TablePlayerAck
+	Status int   // 玩家状态
+	score  int64 // 玩家积分
+	online bool  // 玩家是否在线
 }
 
 // NewPlayer 创建新玩家实例
 func NewPlayer(id string) *Player {
 	return &Player{
-		id:     id,
+		ack:    &cproto.TablePlayerAck{Uid: id},
 		Status: PlayerStatusUnEnter,
 		online: true,
 	}
 }
 
 // SetSeat 设置玩家座位号
-func (p *Player) SetSeat(seatNum int32) {
-	p.Seat = seatNum
+func (p *Player) SetSeat(seat int32) {
+	p.ack.Seat = seat
+}
+
+func (p *Player) GetSeat() int32 {
+	return p.ack.Seat
 }
 
 // AddScore 增加玩家积分
-func (p *Player) AddScore(delta int64) {
-	p.score += delta
+func (p *Player) AddScore(score int64) {
+	p.score += score
 }
 
 func (p *Player) GetScore() int64 {
 	return p.score
+}
+
+func (p *Player) setAck(ack *sproto.PlayerInfoAck) {
+	p.ack.Avatar = ack.Avatar
+	p.ack.Nickname = ack.Nickname
+	p.ack.Vip = ack.Vip
+	p.ack.Diamond = ack.Diamond
 }
 
 // HandleMessage 处理玩家消息

@@ -32,7 +32,7 @@ func NewPlayer(game *Game, player *game.Player) *Player {
 }
 
 func (p *Player) GetSeat() int32 {
-	return p.player.Seat
+	return p.player.GetSeat()
 }
 
 func (p *Player) AddScoreChange(value int64) int64 {
