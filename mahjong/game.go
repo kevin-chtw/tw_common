@@ -1,14 +1,12 @@
 package mahjong
 
 import (
-	"errors"
-
 	"github.com/kevin-chtw/tw_common/game"
 )
 
 type IGame interface {
 	OnStart()
-	OnReqMsg(seat int32, data []byte) error
+	OnReqMsg(player *game.Player, data []byte) error
 }
 
 type Game struct {
@@ -52,12 +50,7 @@ func (g *Game) OnGameBegin() {
 }
 
 func (g *Game) OnPlayerMsg(player *game.Player, data []byte) error {
-	seat := player.GetSeat()
-	if !g.IsValidSeat(seat) {
-		return errors.New("invalid seat")
-	}
-
-	if err := g.IGame.OnReqMsg(seat, data); err != nil {
+	if err := g.IGame.OnReqMsg(player, data); err != nil {
 		return err
 	}
 	g.enterNextState()

@@ -5,6 +5,7 @@ import (
 	"runtime/debug"
 
 	"github.com/kevin-chtw/tw_common/game"
+	"github.com/kevin-chtw/tw_common/utils"
 	"github.com/kevin-chtw/tw_proto/cproto"
 	pitaya "github.com/topfreegames/pitaya/v3/pkg"
 	"github.com/topfreegames/pitaya/v3/pkg/component"
@@ -24,7 +25,7 @@ func NewPlayer(app pitaya.Pitaya) *Player {
 	}
 }
 
-func (p *Player) Message(ctx context.Context, req *cproto.GameReq) {
+func (p *Player) Message(ctx context.Context, data []byte) {
 	defer func() {
 		if r := recover(); r != nil {
 			logger.Log.Errorf("panic recovered %s\n %s", r, string(debug.Stack()))
@@ -39,6 +40,11 @@ func (p *Player) Message(ctx context.Context, req *cproto.GameReq) {
 	player := game.GetPlayerManager().Get(userID)
 	if player == nil {
 		logger.Log.Error("player not found in player manager")
+		return
+	}
+	req := &cproto.GameReq{}
+	if err := utils.Unmarshal(ctx, data, req); err != nil {
+		logger.Log.Error(err.Error())
 		return
 	}
 	if err := player.HandleMessage(ctx, req); err != nil {

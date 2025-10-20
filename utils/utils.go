@@ -1,9 +1,18 @@
 package utils
 
 import (
+	"context"
+
+	"github.com/topfreegames/pitaya/v3/pkg/constants"
 	"github.com/topfreegames/pitaya/v3/pkg/logger"
+	"github.com/topfreegames/pitaya/v3/pkg/session"
+	"google.golang.org/protobuf/encoding/protojson"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/anypb"
+)
+
+const (
+	NetType = "net_type"
 )
 
 func TypeUrl(src proto.Message) string {
@@ -23,4 +32,31 @@ func ToAny(ack proto.Message) *anypb.Any {
 		return nil
 	}
 	return data
+}
+
+func IsWebsocket(ctx context.Context) bool {
+	sessionVal := ctx.Value(constants.SessionCtxKey)
+	if sessionVal == nil {
+		logger.Log.Error("ctx doesn't contain a session, are you calling GetSessionFromCtx from inside a remote?")
+		return false
+	}
+	s := sessionVal.(session.Session)
+	netType := s.String(NetType)
+	return netType == "ws"
+}
+
+func Unmarshal(ctx context.Context, payLoads []byte, msg proto.Message) error {
+	if IsWebsocket(ctx) {
+		return protojson.Unmarshal(payLoads, msg)
+	} else {
+		return proto.Unmarshal(payLoads, msg)
+	}
+}
+
+func Marshal(ctx context.Context, out proto.Message) ([]byte, error) {
+	if IsWebsocket(ctx) {
+		return protojson.Marshal(out)
+	} else {
+		return proto.Marshal(out)
+	}
 }

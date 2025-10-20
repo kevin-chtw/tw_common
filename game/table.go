@@ -5,12 +5,14 @@ import (
 	"errors"
 	"sync"
 
+	"github.com/kevin-chtw/tw_common/utils"
 	"github.com/kevin-chtw/tw_proto/cproto"
 	"github.com/kevin-chtw/tw_proto/sproto"
 	"github.com/sirupsen/logrus"
 
 	pitaya "github.com/topfreegames/pitaya/v3/pkg"
 	"github.com/topfreegames/pitaya/v3/pkg/logger"
+	"google.golang.org/protobuf/encoding/protojson"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/anypb"
 )
@@ -28,41 +30,43 @@ type IGame interface {
 
 // Table 表示一个游戏桌实例
 type Table struct {
-	MatchType     string             //
-	matchID       int32              // 比赛ID
-	tableID       int32              // 桌号
-	matchServerId string             // 匹配服务ID
-	players       map[string]*Player // 玩家ID -> Player
-	app           pitaya.Pitaya
-	scoreBase     int64            // 分数基数
-	gameCount     int32            // 游戏局数
-	curGameCount  int32            // 当前局数
-	playerCount   int32            // 玩家数量
-	property      string           // 游戏配置
-	fdproperty    map[string]int32 // 房间属性
-	lastHandData  any
-	handlers      map[string]func(*Player, *cproto.GameReq) error
-	gameMutex     sync.Mutex // 保护game的对象锁
-	game          IGame      // 游戏逻辑处理接口
-	historyMsg    map[string][]*cproto.GameAck
-	historyMutex  sync.Mutex // 保护historyMsg的锁
-	gameOnce      sync.Once  // 确保每局游戏结束只执行一次
+	MatchType      string             //
+	matchID        int32              // 比赛ID
+	tableID        int32              // 桌号
+	matchServerId  string             // 匹配服务ID
+	players        map[string]*Player // 玩家ID -> Player
+	app            pitaya.Pitaya
+	scoreBase      int64            // 分数基数
+	gameCount      int32            // 游戏局数
+	curGameCount   int32            // 当前局数
+	playerCount    int32            // 玩家数量
+	property       string           // 游戏配置
+	fdproperty     map[string]int32 // 房间属性
+	lastHandData   any
+	handlers       map[string]func(*Player, *cproto.GameReq) error
+	gameMutex      sync.Mutex // 保护game的对象锁
+	game           IGame      // 游戏逻辑处理接口
+	historyMsg     map[string][]*cproto.GameAck
+	historyJsonMsg map[string][]*cproto.GameAck
+	historyMutex   sync.Mutex // 保护historyMsg的锁
+	gameOnce       sync.Once  // 确保每局游戏结束只执行一次
 }
 
 // NewTable 创建新的游戏桌实例
 func NewTable(matchID, tableID int32, app pitaya.Pitaya) *Table {
 	t := &Table{
-		matchID:       matchID,
-		tableID:       tableID,
-		curGameCount:  0,
-		matchServerId: "",
-		players:       make(map[string]*Player),
-		fdproperty:    make(map[string]int32),
-		app:           app,
-		handlers:      make(map[string]func(*Player, *cproto.GameReq) error),
-		gameMutex:     sync.Mutex{},
-		game:          nil,
-		historyMsg:    make(map[string][]*cproto.GameAck),
+		matchID:        matchID,
+		tableID:        tableID,
+		curGameCount:   0,
+		matchServerId:  "",
+		players:        make(map[string]*Player),
+		fdproperty:     make(map[string]int32),
+		app:            app,
+		handlers:       make(map[string]func(*Player, *cproto.GameReq) error),
+		gameMutex:      sync.Mutex{},
+		game:           nil,
+		historyMsg:     make(map[string][]*cproto.GameAck),
+		historyJsonMsg: make(map[string][]*cproto.GameAck),
 	}
 
 	t.init()
@@ -145,7 +149,7 @@ func (t *Table) handleTableMsg(player *Player, req *cproto.GameReq) error {
 	t.gameMutex.Lock()
 	defer t.gameMutex.Unlock()
 	msg := &cproto.TableMsgReq{}
-	if err := proto.Unmarshal(req.Req.Value, msg); err != nil {
+	if err := utils.Unmarshal(player.Ctx, req.Req.Value, msg); err != nil {
 		return err
 	}
 	data := msg.GetMsg()
@@ -187,7 +191,7 @@ func (t *Table) notifyTablePlayer(player *Player, resume bool) {
 			continue
 		}
 		msg := t.newMsg(p.ack)
-		t.sendMsg(msg, []string{player.ack.Uid})
+		t.sendMsg(msg, player)
 	}
 }
 
@@ -246,6 +250,7 @@ func (t *Table) HandleAddPlayer(ctx context.Context, msg proto.Message) (proto.M
 	if err != nil {
 		return nil, err
 	}
+	player.Ctx = ctx
 	player.SetSeat(req.Seat)
 	player.AddScore(req.Score)
 	t.players[req.Playerid] = player
@@ -354,21 +359,47 @@ func (t *Table) Send2Match(msg proto.Message) {
 
 func (t *Table) Send2Player(ack proto.Message, seat int32) {
 	logger.Log.Infof("seat: %d ack: %v", seat, ack)
-	data, err := proto.Marshal(ack)
-	if err != nil {
-		logrus.Error(err.Error())
-	}
-	tablemsg := &cproto.TableMsgAck{
-		Msg: data,
-	}
-	msg := t.newMsg(tablemsg)
 
-	if seat == SeatAll {
-		t.broadcast(msg)
+	if seat != SeatAll {
+		player := t.GetGamePlayer(seat)
+		t.sendTableMsg(ack, player)
 	} else {
-		p := t.GetGamePlayer(seat)
-		t.sendMsg(msg, []string{p.ack.Uid})
+		for _, player := range t.players {
+			if player.Status != PlayerStatusUnEnter {
+				t.sendTableMsg(ack, player)
+			}
+		}
 	}
+}
+
+func (t *Table) sendTableMsg(ack proto.Message, player *Player) {
+	pbData, err := proto.Marshal(ack)
+	if err != nil {
+		logger.Log.Error(err.Error())
+		return
+	}
+	pbTableMsg := &cproto.TableMsgAck{
+		Msg: pbData,
+	}
+	pbMsg := t.newMsg(pbTableMsg)
+
+	jsonData, err := protojson.Marshal(ack)
+	if err != nil {
+		logger.Log.Error(err.Error())
+		return
+	}
+
+	jsonTableMsg := &cproto.TableMsgAck{
+		Msg: jsonData,
+	}
+	jsonMsg := t.newMsg(jsonTableMsg)
+
+	if utils.IsWebsocket(player.Ctx) {
+		t.sendMsg(jsonMsg, player)
+	} else {
+		t.sendMsg(pbMsg, player)
+	}
+	t.addHisMsg(player.ack.Uid, pbMsg, jsonMsg)
 }
 
 func (t *Table) GetLastGameData() any {
@@ -417,35 +448,34 @@ func (t *Table) tick() {
 }
 
 func (t *Table) broadcast(msg *cproto.GameAck) {
-	uids := make([]string, 0)
 	for _, player := range t.players {
 		if player.Status != PlayerStatusUnEnter {
-			uids = append(uids, player.ack.Uid)
+			t.sendMsg(msg, player)
 		}
 	}
-	t.sendMsg(msg, uids)
 }
 
-func (t *Table) sendMsg(msg *cproto.GameAck, uids []string) {
-	if msg.Ack.TypeUrl == TypeUrl(&cproto.TableMsgAck{}) {
-		t.addHisMsg(uids, msg)
-	} else {
-		logger.Log.Infof("player %v msg %v", uids, msg)
+func (t *Table) sendMsg(msg *cproto.GameAck, player *Player) {
+	data, err := utils.Marshal(player.Ctx, msg)
+	if err != nil {
+		logger.Log.Error(err.Error())
+		return
 	}
-	if _, err := t.app.SendPushToUsers(t.app.GetServer().Type, msg, uids, "proxy"); err != nil {
-		logger.Log.Errorf("player %v failed: %v", uids, err)
+
+	if _, err := t.app.SendPushToUsers(t.app.GetServer().Type, data, []string{player.ack.Uid}, "proxy"); err != nil {
+		logger.Log.Errorf("player %v failed: %v", player.ack.Uid, err)
 	}
 }
 
-func (t *Table) addHisMsg(uids []string, gameAck *cproto.GameAck) {
+func (t *Table) addHisMsg(uid string, pbAck, jsonAck *cproto.GameAck) {
 	t.historyMutex.Lock()
 	defer t.historyMutex.Unlock()
-	for _, uid := range uids {
-		if _, exists := t.historyMsg[uid]; !exists {
-			t.historyMsg[uid] = []*cproto.GameAck{}
-		}
-		t.historyMsg[uid] = append(t.historyMsg[uid], gameAck)
+	if _, exists := t.historyMsg[uid]; !exists {
+		t.historyMsg[uid] = make([]*cproto.GameAck, 0)
+		t.historyJsonMsg[uid] = make([]*cproto.GameAck, 0)
 	}
+	t.historyMsg[uid] = append(t.historyMsg[uid], pbAck)
+	t.historyJsonMsg[uid] = append(t.historyJsonMsg[uid], jsonAck)
 }
 
 func (t *Table) sendHisMsges(player *Player) {
@@ -456,11 +486,18 @@ func (t *Table) sendHisMsges(player *Player) {
 		return
 	}
 
-	t.app.SendPushToUsers(t.app.GetServer().Type, t.newMsg(&cproto.HisBeginAck{}), []string{player.ack.Uid}, "proxy")
-	if msgs, exists := t.historyMsg[player.ack.Uid]; exists {
-		for _, msg := range msgs {
-			t.app.SendPushToUsers(t.app.GetServer().Type, msg, []string{player.ack.Uid}, "proxy")
-		}
+	t.sendMsg(t.newMsg(&cproto.HisBeginAck{}), player)
+	historys := t.getHistoryMsg(player)
+	for _, msg := range historys {
+		t.sendMsg(msg, player)
 	}
-	t.app.SendPushToUsers(t.app.GetServer().Type, t.newMsg(&cproto.HisEndAck{}), []string{player.ack.Uid}, "proxy")
+	t.sendMsg(t.newMsg(&cproto.HisEndAck{}), player)
+}
+
+// 辅助函数：获取历史消息
+func (t *Table) getHistoryMsg(player *Player) []*cproto.GameAck {
+	if utils.IsWebsocket(player.Ctx) {
+		return t.historyJsonMsg[player.ack.Uid]
+	}
+	return t.historyMsg[player.ack.Uid]
 }

@@ -17,6 +17,7 @@ const (
 
 // Player 表示游戏中的玩家
 type Player struct {
+	Ctx    context.Context
 	ack    *cproto.TablePlayerAck
 	Status int   // 玩家状态
 	score  int64 // 玩家积分
@@ -63,6 +64,6 @@ func (p *Player) HandleMessage(ctx context.Context, req *cproto.GameReq) error {
 	if nil == table {
 		return errors.New("table not found")
 	}
-
+	p.Ctx = ctx
 	return table.OnPlayerMsg(ctx, p, req)
 }
