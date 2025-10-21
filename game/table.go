@@ -114,9 +114,12 @@ func (t *Table) handleEnterGame(player *Player, _ *cproto.GameReq) error {
 		return err
 	}
 
-	ack := rsp.(*sproto.PlayerInfoAck)
-	player.setAck(ack)
-
+	ack := rsp.(*sproto.AccountAck)
+	msg, err := ack.Ack.UnmarshalNew()
+	if err != nil {
+		return err
+	}
+	player.setAck(msg.(*sproto.PlayerInfoAck))
 	if player.Status == PlayerStatusEnter {
 		t.notifyTablePlayer(player, true)
 		t.sendHisMsges(player)
