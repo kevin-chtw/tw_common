@@ -115,3 +115,11 @@ func TilesInt32(tiles []Tile) []int32 {
 	}
 	return res
 }
+
+func Int32Tile(tiles []int32) []Tile {
+	res := make([]Tile, len(tiles))
+	for i, t := range tiles {
+		res[i] = Tile(t)
+	}
+	return res
+}

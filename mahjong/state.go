@@ -4,6 +4,7 @@ import (
 	"errors"
 	"time"
 
+	"github.com/kevin-chtw/tw_proto/game/pbmj"
 	"google.golang.org/protobuf/proto"
 )
 
@@ -22,14 +23,17 @@ func CreateState(newFn func(IGame, ...any) IState, g IGame, args ...any) IState 
 
 // State 麻将游戏状态基类
 type State struct {
-	game       *Game
+	timer      *Timer
+	sender     *Sender
+	aniFn      func()
 	msgHandler func(seat int32, req proto.Message) error
 }
 
 // NewState 创建新的游戏状态
-func NewState(game *Game) *State {
+func NewState(game *Game, sender *Sender) *State {
 	return &State{
-		game:       game,
+		timer:      game.timer,
+		aniFn:      nil,
 		msgHandler: nil,
 	}
 }
@@ -41,13 +45,13 @@ func (s *State) AsyncMsgTimer(
 	onTimeout func(),
 ) {
 	s.msgHandler = handler
-	s.game.timer.Schedule(timeout, onTimeout)
+	s.timer.Schedule(timeout, onTimeout)
 }
 
 // AsyncTimer 设置异步定时器
 func (s *State) AsyncTimer(timeout time.Duration, onTimeout func()) {
 	s.msgHandler = nil
-	s.game.timer.Schedule(timeout, onTimeout)
+	s.timer.Schedule(timeout, onTimeout)
 }
 
 // HandlePlayerMsg 处理玩家消息
@@ -56,4 +60,21 @@ func (s *State) OnPlayerMsg(seat int32, req proto.Message) error {
 		return s.msgHandler(seat, req)
 	}
 	return errors.New("msgHandler is nil")
+}
+
+func (s *State) OnAniMsg(seat int32, msg proto.Message) error {
+	aniReq, ok := msg.(*pbmj.MJAnimationReq)
+	if !ok {
+		return nil
+	}
+	if aniReq != nil && seat == aniReq.Seat && s.sender.IsRequestID(seat, aniReq.Requestid) {
+		s.aniFn()
+	}
+	return nil
+}
+
+func (s *State) WaitAni(reqFn func()) {
+	s.sender.SendAnimationAck()
+	s.aniFn = reqFn
+	s.AsyncMsgTimer(s.OnAniMsg, time.Second*5, reqFn)
 }

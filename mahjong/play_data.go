@@ -395,27 +395,22 @@ func (p *PlayData) GetKonGroups() []KonGroup {
 	return p.konGroups
 }
 
-func (p *PlayData) GetExchangeRecommend() []int {
+func (p *PlayData) GetExchangeRecommend() []Tile {
 	// 实现交换推荐逻辑
 	return nil
 }
 
-func (p *PlayData) CanExchangeOut(tiles []int) bool {
+func (p *PlayData) CanExchangeOut(tiles []Tile) bool {
 	// 实现能否交换出牌逻辑
 	return false
 }
 
-func (p *PlayData) ExchangeOut(outs []int) {
+func (p *PlayData) ExchangeOut(outs []Tile) {
 	// 实现交换出牌逻辑
 }
 
-func (p *PlayData) ExchangeIn(ines []int) {
+func (p *PlayData) ExchangeIn(ines []Tile) {
 	// 实现交换进牌逻辑
-}
-
-func (p *PlayData) Exchange(outs, ines []int) {
-	p.ExchangeOut(outs)
-	p.ExchangeIn(ines)
 }
 
 func (p *PlayData) IncEverPonCount() {

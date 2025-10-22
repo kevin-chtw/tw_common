@@ -12,26 +12,22 @@ type IGame interface {
 type Game struct {
 	IGame
 	*game.Table
-	id          int32
-	timer       *Timer
-	CurState    IState
-	nextState   IState
-	rule        *Rule
-	players     []*Player
-	increasedID int32   // 当前请求ID
-	requestIDs  []int32 // 记录每个玩家的请求ID
+	id        int32
+	timer     *Timer
+	CurState  IState
+	nextState IState
+	rule      *Rule
+	players   []*Player
 }
 
 func NewGame(subGame IGame, t *game.Table, id int32) *Game {
 	g := &Game{
-		IGame:       subGame,
-		Table:       t,
-		id:          id,
-		timer:       NewTimer(),
-		rule:        NewRule(),
-		players:     make([]*Player, t.GetPlayerCount()),
-		increasedID: 1,
-		requestIDs:  make([]int32, t.GetPlayerCount()),
+		IGame:   subGame,
+		Table:   t,
+		id:      id,
+		timer:   NewTimer(),
+		rule:    NewRule(),
+		players: make([]*Player, t.GetPlayerCount()),
 	}
 
 	g.rule.LoadRule(t.GetProperty(), Service.GetDefaultRules())
@@ -98,23 +94,4 @@ func (g *Game) enterNextState() {
 		g.timer.Cancel()
 		g.CurState.OnEnter()
 	}
-}
-
-func (g *Game) GetRequestID(seat int32) int32 {
-	g.increasedID++
-	if g.IsValidSeat(seat) {
-		g.requestIDs[seat] = g.increasedID
-	} else {
-		for i := range g.requestIDs {
-			g.requestIDs[i] = g.increasedID
-		}
-	}
-	return g.increasedID
-}
-
-func (g *Game) IsRequestID(seat, id int32) bool {
-	if !g.IsValidSeat(seat) {
-		return false
-	}
-	return g.requestIDs[seat] == id
 }

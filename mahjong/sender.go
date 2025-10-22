@@ -11,9 +11,11 @@ type MsgPacker interface {
 }
 
 type Sender struct {
-	game   *Game
-	play   *Play
-	packer MsgPacker
+	game        *Game
+	play        *Play
+	packer      MsgPacker
+	increasedID int32   // 当前请求ID
+	requestIDs  []int32 // 记录每个玩家的请求ID
 }
 
 func ToCallData(callData map[Tile]map[Tile]int64) map[int32]*pbmj.CallData {
@@ -32,10 +34,31 @@ func ToCallData(callData map[Tile]map[Tile]int64) map[int32]*pbmj.CallData {
 
 func NewSender(game *Game, play *Play, packer MsgPacker) *Sender {
 	return &Sender{
-		game:   game,
-		play:   play,
-		packer: packer,
+		game:        game,
+		play:        play,
+		packer:      packer,
+		increasedID: 1,
+		requestIDs:  make([]int32, game.GetPlayerCount()),
 	}
+}
+
+func (s *Sender) GetRequestID(seat int32) int32 {
+	s.increasedID++
+	if s.game.IsValidSeat(seat) {
+		s.requestIDs[seat] = s.increasedID
+	} else {
+		for i := range s.requestIDs {
+			s.requestIDs[i] = s.increasedID
+		}
+	}
+	return s.increasedID
+}
+
+func (s *Sender) IsRequestID(seat, id int32) bool {
+	if !s.game.IsValidSeat(seat) {
+		return false
+	}
+	return s.requestIDs[seat] == id
 }
 
 func (s *Sender) SendMsg(msg proto.Message, seat int32) error {
@@ -71,7 +94,7 @@ func (s *Sender) SendOpenDoorAck() {
 
 func (s *Sender) SendAnimationAck() {
 	animationAck := &pbmj.MJAnimationAck{
-		Requestid: s.game.GetRequestID(game.SeatAll),
+		Requestid: s.GetRequestID(game.SeatAll),
 	}
 	s.SendMsg(animationAck, game.SeatAll)
 }
@@ -80,7 +103,7 @@ func (s *Sender) SendRequestAck(seat int32, operates *Operates) {
 	requestAck := &pbmj.MJRequestAck{
 		Seat:        seat,
 		RequestType: int32(operates.Value),
-		Requestid:   s.game.GetRequestID(seat),
+		Requestid:   s.GetRequestID(seat),
 	}
 	s.SendMsg(requestAck, seat)
 }
