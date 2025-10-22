@@ -105,10 +105,6 @@ func (t *Table) handleEnterGame(player *Player, _ *cproto.GameReq) error {
 		return errors.New("player not on table")
 	}
 
-	if len(t.players) >= int(t.playerCount) {
-		return errors.New("table is full")
-	}
-
 	rsp, err := t.send2Account(&sproto.PlayerInfoReq{Uid: player.ack.Uid})
 	if err != nil {
 		return err
