@@ -394,23 +394,69 @@ func (p *PlayData) GetPonGroups() []Group {
 func (p *PlayData) GetKonGroups() []KonGroup {
 	return p.konGroups
 }
+func (p *PlayData) GetSwapRecommend() []Tile {
+	colorCount := make(map[EColor]int)    // key: 花色, value: 牌数
+	colorTiles := make(map[EColor][]Tile) // key: 花色, value: 该花色的牌
 
-func (p *PlayData) GetExchangeRecommend() []Tile {
-	// 实现交换推荐逻辑
-	return nil
+	for _, tile := range p.handTiles {
+		color := tile.Color()
+		colorCount[color]++
+		colorTiles[color] = append(colorTiles[color], tile)
+	}
+
+	// 找出牌数大于3张且张数最少的花色
+	var bestColor EColor = ColorUndefined
+	var minCount int = 999
+	for color, count := range colorCount {
+		if count > 3 && count < minCount {
+			bestColor = color
+			minCount = count
+		}
+	}
+
+	if bestColor == ColorUndefined {
+		return nil
+	}
+	tiles := colorTiles[bestColor]
+	return tiles[:3]
 }
 
 func (p *PlayData) CanExchangeOut(tiles []Tile) bool {
-	// 实现能否交换出牌逻辑
-	return false
+	// 检查牌数量是否为3
+	if len(tiles) != 3 {
+		return false
+	}
+
+	// 检查所有牌花色是否相同
+	color := tiles[0].Color()
+	for _, tile := range tiles[1:] {
+		if tile.Color() != color {
+			return false
+		}
+	}
+
+	// 检查所有牌是否在手牌中
+	handTilesCopy := slices.Clone(p.handTiles)
+	for _, tile := range tiles {
+		if i := slices.Index(handTilesCopy, tile); i >= 0 {
+			handTilesCopy = slices.Delete(handTilesCopy, i, i+1)
+		} else {
+			return false
+		}
+	}
+	return true
 }
 
-func (p *PlayData) ExchangeOut(outs []Tile) {
-	// 实现交换出牌逻辑
+func (p *PlayData) SwapOut(tiles []Tile) {
+	for _, tile := range tiles {
+		if i := slices.Index(p.handTiles, tile); i >= 0 {
+			p.handTiles = slices.Delete(p.handTiles, i, i+1)
+		}
+	}
 }
 
-func (p *PlayData) ExchangeIn(ines []Tile) {
-	// 实现交换进牌逻辑
+func (p *PlayData) SwapIn(tiles []Tile) {
+	p.handTiles = append(p.handTiles, tiles...)
 }
 
 func (p *PlayData) IncEverPonCount() {
