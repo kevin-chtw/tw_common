@@ -6,7 +6,7 @@ import (
 	"fmt"
 	"runtime/debug"
 
-	"github.com/kevin-chtw/tw_common/game"
+	"github.com/kevin-chtw/tw_common/gamebase/game"
 	"github.com/kevin-chtw/tw_common/utils"
 	"github.com/kevin-chtw/tw_proto/sproto"
 	pitaya "github.com/topfreegames/pitaya/v3/pkg"

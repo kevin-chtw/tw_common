@@ -1,6 +1,6 @@
 package mahjong
 
-import "github.com/kevin-chtw/tw_common/game"
+import "github.com/kevin-chtw/tw_common/gamebase/game"
 
 // 玩家状态常量
 const (

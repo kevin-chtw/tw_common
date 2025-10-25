@@ -1,7 +1,7 @@
 package mahjong
 
 import (
-	"github.com/kevin-chtw/tw_common/game"
+	"github.com/kevin-chtw/tw_common/gamebase/game"
 )
 
 type IGame interface {
