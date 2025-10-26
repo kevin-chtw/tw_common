@@ -16,23 +16,23 @@ import (
 	"google.golang.org/protobuf/types/known/anypb"
 )
 
-// Match 独立的匹配服务
-type Match struct {
+// Remote 独立的匹配服务
+type Remote struct {
 	component.Base
 	app      pitaya.Pitaya
 	handlers map[string]func(*game.Table, context.Context, proto.Message) (proto.Message, error)
 }
 
-// NewMatch 创建独立的匹配服务
-func NewMatch(app pitaya.Pitaya) *Match {
-	return &Match{
+// NewRemote 创建独立的匹配服务
+func NewRemote(app pitaya.Pitaya) *Remote {
+	return &Remote{
 		app:      app,
 		handlers: make(map[string]func(*game.Table, context.Context, proto.Message) (proto.Message, error)),
 	}
 }
 
 // Init 组件初始化
-func (m *Match) Init() {
+func (m *Remote) Init() {
 	m.handlers[utils.TypeUrl(&sproto.AddTableReq{})] = (*game.Table).HandleAddTable
 	m.handlers[utils.TypeUrl(&sproto.AddPlayerReq{})] = (*game.Table).HandleAddPlayer
 	m.handlers[utils.TypeUrl(&sproto.CancelTableReq{})] = (*game.Table).HandleCancelTable
@@ -40,7 +40,7 @@ func (m *Match) Init() {
 }
 
 // Message 处理匹配服务消息
-func (m *Match) Message(ctx context.Context, req *sproto.Match2GameReq) (*sproto.Match2GameAck, error) {
+func (m *Remote) Message(ctx context.Context, req *sproto.GameReq) (*sproto.GameAck, error) {
 	defer func() {
 		if r := recover(); r != nil {
 			logger.Log.Errorf("panic recovered %s\n %s", r, string(debug.Stack()))
@@ -69,17 +69,17 @@ func (m *Match) Message(ctx context.Context, req *sproto.Match2GameReq) (*sproto
 		if err != nil {
 			return nil, err
 		}
-		return m.newMatch2GameAck(req, rsp)
+		return m.newGameAck(req, rsp)
 	}
 	return nil, errors.New("invalid request type")
 }
 
-func (m *Match) newMatch2GameAck(req *sproto.Match2GameReq, ack proto.Message) (*sproto.Match2GameAck, error) {
+func (m *Remote) newGameAck(req *sproto.GameReq, ack proto.Message) (*sproto.GameAck, error) {
 	data, err := anypb.New(ack)
 	if err != nil {
 		return nil, err
 	}
-	return &sproto.Match2GameAck{
+	return &sproto.GameAck{
 		Matchid: req.GetMatchid(),
 		Tableid: req.GetTableid(),
 		Ack:     data,

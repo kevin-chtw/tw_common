@@ -38,6 +38,7 @@ import (
 type Matching struct {
 	ServerId   string `json:"server_id"`
 	ServerType string `json:"server_type"`
+	MatchId    int32  `json:"match_id"`
 }
 
 // ETCDMatching module that uses etcd to keep in which frontend server each user is bound
@@ -71,10 +72,11 @@ func getUserMatchingKey(uid string) string {
 }
 
 // Put puts the binding info into etcd
-func (b *ETCDMatching) Put(uid string) error {
+func (b *ETCDMatching) Put(uid string, matchid int32) error {
 	matching := Matching{
 		ServerId:   b.thisServer.ID,
 		ServerType: b.thisServer.Type,
+		MatchId:    matchid,
 	}
 
 	value, err := json.Marshal(matching)

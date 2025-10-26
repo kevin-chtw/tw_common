@@ -178,7 +178,7 @@ func (t *Table) sendGameOver() {
 	msg := t.newMsg(ack)
 	t.broadcast(msg)
 
-	gameOver := &sproto.GameOverAck{
+	gameOver := &sproto.GameOverReq{
 		CurGameCount: t.curGameCount,
 	}
 	t.Send2Match(gameOver)
@@ -288,7 +288,7 @@ func (t *Table) NotifyGameOver(gameId int32) {
 	}
 
 	t.gameOnce.Do(func() {
-		result := &sproto.GameResultAck{
+		result := &sproto.GameResultReq{
 			CurGameCount: t.curGameCount,
 			Players:      make([]*sproto.PlayerResult, 0),
 		}
@@ -332,7 +332,7 @@ func (t *Table) send2Account(msg proto.Message) (proto.Message, error) {
 		Req: data,
 	}
 	ack := &sproto.AccountAck{}
-	if err := t.app.RPC(context.Background(), "account.server.message", ack, req); err != nil {
+	if err := t.app.RPC(context.Background(), "account.remote.message", ack, req); err != nil {
 		return nil, err
 	}
 	return ack, nil
@@ -345,13 +345,12 @@ func (t *Table) Send2Match(msg proto.Message) {
 		logger.Log.Error(err.Error())
 		return
 	}
-	ack := &sproto.Match2GameAck{
+	req := &sproto.MatchReq{
 		Matchid: t.matchID,
-		Tableid: t.tableID,
-		Ack:     data,
+		Req:     data,
 	}
-	req := &sproto.Match2GameReq{}
-	if err := t.app.RPCTo(context.Background(), t.matchServerId, t.MatchType+".game.message", req, ack); err != nil {
+	ack := &sproto.MatchAck{}
+	if err := t.app.RPCTo(context.Background(), t.matchServerId, t.MatchType+".remote.message", ack, req); err != nil {
 		logger.Log.Error(err.Error())
 	}
 }

@@ -46,7 +46,7 @@ func (m *Matchmgr) reportPlayerCount() {
 			Id:            matchID,
 			Name:          match.Conf.Name,
 			GameType:      match.Conf.GameType,
-			MatchType:     "fdtable",
+			MatchType:     m.App.GetServer().Type,
 			Serverid:      m.App.GetServerID(),
 			SignCondition: match.Conf.SignCondition,
 			Online:        int32(match.Playermgr.playerCount()),
