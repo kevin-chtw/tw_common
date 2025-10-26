@@ -11,8 +11,9 @@ import (
 	"google.golang.org/protobuf/types/known/anypb"
 )
 
-const (
-	NetType = "net_type"
+var (
+	NetType     = "net_type"
+	JsonMarshal = protojson.MarshalOptions{UseProtoNames: true}
 )
 
 func TypeUrl(src proto.Message) string {
@@ -55,7 +56,7 @@ func Unmarshal(ctx context.Context, payLoads []byte, msg proto.Message) error {
 
 func Marshal(ctx context.Context, out proto.Message) ([]byte, error) {
 	if IsWebsocket(ctx) {
-		return protojson.Marshal(out)
+		return JsonMarshal.Marshal(out)
 	} else {
 		return proto.Marshal(out)
 	}

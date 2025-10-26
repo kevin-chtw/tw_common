@@ -12,7 +12,6 @@ import (
 
 	pitaya "github.com/topfreegames/pitaya/v3/pkg"
 	"github.com/topfreegames/pitaya/v3/pkg/logger"
-	"google.golang.org/protobuf/encoding/protojson"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/anypb"
 )
@@ -381,7 +380,7 @@ func (t *Table) sendTableMsg(ack proto.Message, player *Player) {
 	}
 	pbMsg := t.newMsg(pbTableMsg)
 
-	jsonData, err := protojson.Marshal(ack)
+	jsonData, err := utils.JsonMarshal.Marshal(ack)
 	if err != nil {
 		logger.Log.Error(err.Error())
 		return
