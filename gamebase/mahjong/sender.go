@@ -215,11 +215,3 @@ func (s *Sender) SendResult(liuju bool) {
 	}
 	s.SendMsg(resultAck, game.SeatAll)
 }
-
-func (s *Sender) SendHandleFinAck(seat int32, handle string) {
-	ack := &pbmj.MJHandleFinAck{
-		Seat:   seat,
-		Handle: handle,
-	}
-	s.SendMsg(ack, game.SeatAll)
-}
