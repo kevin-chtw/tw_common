@@ -40,6 +40,8 @@ type Table struct {
 	curGameCount   int32            // 当前局数
 	playerCount    int32            // 玩家数量
 	property       string           // 游戏配置
+	creator        string           // 创建者ID
+	description    string           // 房间描述
 	fdproperty     map[string]int32 // 房间属性
 	lastHandData   any
 	handlers       map[string]func(*Player, *cproto.GameReq) error
@@ -114,6 +116,8 @@ func (t *Table) handleEnterGame(player *Player, _ *cproto.GameReq) error {
 	if err != nil {
 		return err
 	}
+
+	t.sendEnterGame(player)
 	player.setAck(msg.(*sproto.PlayerInfoAck))
 	if player.Status == PlayerStatusEnter {
 		t.notifyTablePlayer(player, true)
@@ -193,6 +197,22 @@ func (t *Table) notifyTablePlayer(player *Player, resume bool) {
 	}
 }
 
+func (t *Table) sendEnterGame(player *Player) {
+	ack := &cproto.EnterGameAck{
+		Tableid:      t.tableID,
+		ScoreBase:    t.scoreBase,
+		GameCount:    t.gameCount,
+		CurGameCount: t.curGameCount,
+		PlayerCount:  t.playerCount,
+		Property:     t.property,
+		Creator:      t.creator,
+		Desn:         t.description,
+		Fdproperty:   t.fdproperty,
+	}
+	msg := t.newMsg(ack)
+	t.sendMsg(msg, player)
+}
+
 func (t *Table) newMsg(ack proto.Message) *cproto.GameAck {
 	data, err := anypb.New(ack)
 	if err != nil {
@@ -228,12 +248,13 @@ func (t *Table) isAllPlayersReady() bool {
 // HandleStartGame 处理开始游戏请求
 func (t *Table) HandleAddTable(ctx context.Context, msg proto.Message) (proto.Message, error) {
 	req := msg.(*sproto.AddTableReq)
-
 	t.MatchType = req.GetMatchType()
 	t.scoreBase = int64(req.GetScoreBase())
 	t.gameCount = req.GetGameCount()
 	t.playerCount = req.GetPlayerCount()
 	t.property = req.GetProperty()
+	t.creator = req.GetCreator()
+	t.description = req.GetDesn()
 	t.fdproperty = req.GetFdproperty()
 	return &sproto.EmptyAck{}, nil
 }
