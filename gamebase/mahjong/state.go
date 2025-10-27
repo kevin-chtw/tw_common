@@ -33,6 +33,7 @@ type State struct {
 func NewState(game *Game, sender *Sender) *State {
 	return &State{
 		timer:      game.timer,
+		sender:     sender,
 		aniFn:      nil,
 		msgHandler: nil,
 	}
