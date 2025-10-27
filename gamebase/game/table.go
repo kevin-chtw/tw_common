@@ -150,11 +150,12 @@ func (t *Table) gameBegin() {
 func (t *Table) handleTableMsg(player *Player, req *cproto.GameReq) error {
 	t.gameMutex.Lock()
 	defer t.gameMutex.Unlock()
-	msg := &cproto.TableMsgReq{}
-	if err := utils.Unmarshal(player.Ctx, req.Req.Value, msg); err != nil {
+	msg, err := req.Req.UnmarshalNew()
+	if err != nil {
 		return err
 	}
-	data := msg.GetMsg()
+
+	data := msg.(*cproto.TableMsgReq).GetMsg()
 	if t.game != nil && data != nil {
 		return t.game.OnPlayerMsg(player, data)
 	}
