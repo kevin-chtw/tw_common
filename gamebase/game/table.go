@@ -117,21 +117,23 @@ func (t *Table) handleEnterGame(player *Player, _ *cproto.GameReq) error {
 		return err
 	}
 
+	player.enter = true
 	t.sendEnterGame(player)
 	player.setAck(msg.(*sproto.PlayerInfoAck))
-	if player.Status == PlayerStatusEnter {
+	if player.entered {
 		t.notifyTablePlayer(player, true)
 		t.sendHisMsges(player)
 	} else {
-		player.Status = PlayerStatusEnter
+		player.entered = true
+		player.ready = true
 		t.broadcastTablePlayer(player)
 		t.notifyTablePlayer(player, false)
+		// 检查是否满足开赛条件
+		if t.isAllPlayersReady() {
+			t.gameBegin()
+		}
 	}
 
-	// 检查是否满足开赛条件
-	if t.isAllPlayersReady() {
-		t.gameBegin()
-	}
 	return nil
 }
 
@@ -239,7 +241,7 @@ func (t *Table) isAllPlayersReady() bool {
 		return false
 	}
 	for _, player := range t.players {
-		if player.Status == PlayerStatusUnEnter {
+		if !player.ready {
 			return false
 		}
 	}
@@ -295,6 +297,9 @@ func (t *Table) HandleNetState(ctx context.Context, msg proto.Message) (proto.Me
 		return nil, errors.New("player online status not changed")
 	}
 	player.online = req.Online
+	if !req.Online {
+		player.enter = false
+	}
 
 	if t.game != nil {
 		t.game.OnNetChange(player, req.Online)
@@ -384,9 +389,7 @@ func (t *Table) Send2Player(ack proto.Message, seat int32) {
 		t.sendTableMsg(ack, player)
 	} else {
 		for _, player := range t.players {
-			if player.Status != PlayerStatusUnEnter {
-				t.sendTableMsg(ack, player)
-			}
+			t.sendTableMsg(ack, player)
 		}
 	}
 }
@@ -468,9 +471,7 @@ func (t *Table) tick() {
 
 func (t *Table) broadcast(msg *cproto.GameAck) {
 	for _, player := range t.players {
-		if player.Status != PlayerStatusUnEnter {
-			t.sendMsg(msg, player)
-		}
+		t.sendMsg(msg, player)
 	}
 }
 
@@ -478,6 +479,10 @@ func (t *Table) sendMsg(msg *cproto.GameAck, player *Player) {
 	data, err := utils.Marshal(player.Ctx, msg)
 	if err != nil {
 		logger.Log.Error(err.Error())
+		return
+	}
+
+	if !player.enter || !player.online {
 		return
 	}
 

@@ -8,28 +8,24 @@ import (
 	"github.com/kevin-chtw/tw_proto/sproto"
 )
 
-const (
-	PlayerStatusUnEnter = iota // 玩家状态：未进入
-	PlayerStatusEnter          // 玩家状态：进入
-	PlayerStatusReady          // 玩家状态：准备
-	PlayerStatusPlaying        // 玩家状态：游戏中
-)
-
 // Player 表示游戏中的玩家
 type Player struct {
-	Ctx    context.Context
-	ack    *cproto.TablePlayerAck
-	Status int   // 玩家状态
-	score  int64 // 玩家积分
-	online bool  // 玩家是否在线
+	Ctx     context.Context
+	ack     *cproto.TablePlayerAck
+	score   int64 // 玩家积分
+	online  bool  // 玩家是否在线
+	enter   bool  // 玩家是否进入游戏
+	entered bool  // 玩家是否进入过游戏
+	ready   bool  // 玩家是否准备
 }
 
 // NewPlayer 创建新玩家实例
 func NewPlayer(id string) *Player {
 	return &Player{
 		ack:    &cproto.TablePlayerAck{Uid: id},
-		Status: PlayerStatusUnEnter,
 		online: true,
+		enter:  false,
+		ready:  false,
 	}
 }
 
