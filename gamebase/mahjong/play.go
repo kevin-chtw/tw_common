@@ -120,6 +120,21 @@ func (p *Play) FetchWaitOperates(seat int32) *Operates {
 	return opt
 }
 
+func (p *Play) FetchAfterBuKonOperates(seat int32, checker CheckerWait) *Operates {
+	opt := &Operates{Value: OperatePass}
+	if p.game.GetPlayer(seat).isOut {
+		return opt
+	}
+
+	tips := make([]int, 0)
+	tips = checker.Check(seat, opt, tips)
+
+	if len(tips) > 0 {
+		p.sendTips(tips[0], seat)
+	}
+	return opt
+}
+
 func (p *Play) sendTips(tips int, seat int32) {
 	//TODO
 }

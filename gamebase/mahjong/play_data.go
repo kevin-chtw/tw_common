@@ -539,16 +539,28 @@ func (p *PlayData) KonTiles() (tiles []Tile, countAnKon int32) {
 	return
 }
 
-// CanSelfKon 判断是否可以自杠
+func (p *PlayData) CanSelfKonByQue(queColor EColor) bool {
+	counts := make(map[Tile]int)
+	for _, tile := range p.handTiles {
+		if tile.Color() != queColor {
+			counts[tile]++
+		}
+	}
+	return p.checkSelfKon(counts)
+}
+
 func (p *PlayData) canSelfKon(ignoreTiles map[Tile]struct{}) bool {
-	p.canGangTiles = make([]Tile, 0)
 	counts := make(map[Tile]int)
 	for _, tile := range p.handTiles {
 		if _, ok := ignoreTiles[tile]; !ok {
 			counts[tile]++
 		}
 	}
+	return p.checkSelfKon(counts)
+}
 
+func (p *PlayData) checkSelfKon(counts map[Tile]int) bool {
+	p.canGangTiles = make([]Tile, 0)
 	if !p.ting {
 		for _, pon := range p.ponGroups {
 			if slices.Contains(p.handTiles, pon.Tile) {
