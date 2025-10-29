@@ -53,6 +53,15 @@ type Operates struct {
 	Value    int32
 	IsMustHu bool
 	Capped   bool
+	HuMulti  int64
+	Tips     []int32
+}
+
+func NewOperates(opt int32) *Operates {
+	return &Operates{
+		Value: opt,
+		Tips:  make([]int32, 0),
+	}
 }
 
 func (o *Operates) AddOperate(op int32) {

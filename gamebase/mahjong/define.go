@@ -46,8 +46,12 @@ var SEQ_BEGIN_BY_COLOR = [ColorEnd]int{0, 9, 18, 27, 31, 34, 38, 42}
 type ScoreReason int //算分原因
 
 const (
-	ScoreReasonHu   ScoreReason = iota // 胡
-	ScoreReasonGang                    // 杠
+	ScoreReasonHu      ScoreReason = iota // 胡 0
+	ScoreReasonAnKon                      // 暗杠 1
+	ScoreReasonBuKon                      // 补杠 2
+	ScoreReasonZhiKon                     // 直杠 3
+	ScoreReasonTuiKon                     // 退杠 4
+	ScoreReasonChaJiao                    // 查叫 5
 )
 
 type ScoreType int //算分方式

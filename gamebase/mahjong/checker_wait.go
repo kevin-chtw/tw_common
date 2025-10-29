@@ -4,34 +4,33 @@ import "slices"
 
 // CheckerWait 定义检查接口
 type CheckerWait interface {
-	Check(seat int32, opt *Operates, tips []int) []int
+	Check(seat int32, opt *Operates)
 }
 
 type CheckerPao struct{ play *Play } // 点炮检查器
 func NewCheckerPao(play *Play) CheckerWait {
 	return &CheckerPao{play: play}
 }
-func (c *CheckerPao) Check(seat int32, opt *Operates, tips []int) []int {
+func (c *CheckerPao) Check(seat int32, opt *Operates) {
 	if c.play.PlayConf.OnlyZimo {
-		tips = append(tips, TipsOnlyZiMo)
+		opt.Tips = append(opt.Tips, TipsOnlyZiMo)
 	}
 
 	data := NewHuData(c.play.playData[seat], false)
 	result, hu := data.CheckHu()
 	if !hu {
-		return tips
+		return
 	}
 
 	if c.play.PlayConf.MustHu {
 		c.play.AddHuOperate(opt, seat, result, true)
 	} else if c.play.playData[seat].IsPassHuTile(c.play.curTile) && c.play.PlayConf.HuPass {
-		tips = append(tips, TipsPassHu)
+		opt.Tips = append(opt.Tips, TipsPassHu)
 	} else if result.TotalMuti < c.play.PlayConf.MinMultipleLimit {
-		tips = append(tips, TipsQiHuFan)
+		opt.Tips = append(opt.Tips, TipsQiHuFan)
 	} else {
 		c.play.AddHuOperate(opt, seat, result, true)
 	}
-	return tips
 }
 
 type CheckerChow struct{ play *Play } // 吃牌检查器
@@ -39,36 +38,35 @@ func NewCheckerChow(play *Play) CheckerWait {
 	return &CheckerChow{play: play}
 }
 
-func (c *CheckerChow) Check(seat int32, opt *Operates, tips []int) []int {
+func (c *CheckerChow) Check(seat int32, opt *Operates) {
 	if opt.IsMustHu {
-		return tips
+		return
 	}
 	playData := c.play.playData[seat]
 	if playData.ting {
-		return tips
+		return
 	}
 
 	if GetNextSeat(c.play.curSeat, 1, c.play.game.GetPlayerCount()) != seat {
-		return tips
+		return
 	}
 
 	if playData.canChow(c.play.curTile) {
 		opt.AddOperate(OperateChow)
 	}
-	return tips
 }
 
 type CheckerPon struct{ play *Play } // 碰牌检查器
 func NewCheckerPon(play *Play) CheckerWait {
 	return &CheckerPon{play: play}
 }
-func (c *CheckerPon) Check(seat int32, opt *Operates, tips []int) []int {
+func (c *CheckerPon) Check(seat int32, opt *Operates) {
 	if opt.IsMustHu {
-		return tips
+		return
 	}
 	playData := c.play.playData[seat]
 	if playData.ting {
-		return tips
+		return
 	}
 
 	tmpOpr := &Operates{}
@@ -79,45 +77,43 @@ func (c *CheckerPon) Check(seat int32, opt *Operates, tips []int) []int {
 	if !playData.IsPassPonTile(c.play.curTile) || !c.play.PlayConf.PonPass {
 		opt.AddOperates(tmpOpr)
 	} else if tmpOpr.Value != 0 {
-		tips = append(tips, TipsPassPon)
+		opt.Tips = append(opt.Tips, TipsPassPon)
 	}
-	return tips
 }
 
 type CheckerZhiKon struct{ play *Play } // 直杠检查器
 func NewCheckerZhiKon(play *Play) CheckerWait {
 	return &CheckerZhiKon{play: play}
 }
-func (c *CheckerZhiKon) Check(seat int32, opt *Operates, tips []int) []int {
+func (c *CheckerZhiKon) Check(seat int32, opt *Operates) {
 	if opt.IsMustHu {
-		return tips
+		return
 	}
 	if c.play.dealer.GetRestCount() <= 0 {
-		return tips
+		return
 	}
 
 	playData := c.play.playData[seat]
 	if playData.canKon(c.play.curTile, KonTypeZhi) {
 		opt.AddOperate(OperateKon)
 	}
-	return tips
 }
 
 type CheckerChowTing struct{ play *Play } // 吃听检查器
 func NewCheckerChowTing(play *Play) CheckerWait {
 	return &CheckerChowTing{play: play}
 }
-func (c *CheckerChowTing) Check(seat int32, opt *Operates, tips []int) []int {
+func (c *CheckerChowTing) Check(seat int32, opt *Operates) {
 	if opt.IsMustHu {
-		return tips
+		return
 	}
 	playData := c.play.playData[seat]
 	if playData.ting {
-		return tips
+		return
 	}
 
 	if !playData.canChow(c.play.curTile) {
-		return tips
+		return
 	}
 
 	huData := NewHuData(playData, false)
@@ -137,12 +133,11 @@ func (c *CheckerChowTing) Check(seat int32, opt *Operates, tips []int) []int {
 			callData := huData.CheckCall()
 			if len(callData) > 0 {
 				opt.AddOperate(OperateChowTing)
-				return tips
+				return
 			}
 		}
 		huData.Tiles = append(huData.Tiles, tiles...)
 	}
-	return tips
 }
 
 type CheckerPonTing struct{ play *Play } // 碰听检查器
@@ -150,9 +145,9 @@ func NewCheckerPonTing(play *Play) CheckerWait {
 	return &CheckerPonTing{play: play}
 }
 
-func (c *CheckerPonTing) Check(seat int32, opt *Operates, tips []int) []int {
+func (c *CheckerPonTing) Check(seat int32, opt *Operates) {
 	if !opt.HasOperate(OperatePon) {
-		return tips
+		return
 	}
 
 	huData := NewHuData(c.play.playData[seat], false)
@@ -161,5 +156,4 @@ func (c *CheckerPonTing) Check(seat int32, opt *Operates, tips []int) []int {
 	if len(callData) > 0 {
 		opt.AddOperate(OperatePonTing)
 	}
-	return tips
 }

@@ -1,7 +1,7 @@
 package mahjong
 
 type CheckerSelf interface {
-	Check(opt *Operates, tips []int) []int
+	Check(opt *Operates)
 }
 
 // 胡检查器
@@ -13,26 +13,25 @@ func NewCheckerHu(play *Play) CheckerSelf {
 	return &checkerHu{play: play}
 }
 
-func (c *checkerHu) Check(opt *Operates, tips []int) []int {
+func (c *checkerHu) Check(opt *Operates) {
 	if c.play.IsAfterPon() {
-		return tips
+		return
 	}
 
 	data := NewHuData(c.play.playData[c.play.curSeat], true)
 	result, hu := data.CheckHu()
 	if !hu {
-		return tips
+		return
 	}
 
 	if c.play.checkMustHu(c.play.curSeat) {
 		opt.RemoveOperate(OperateDiscard)
 		c.play.AddHuOperate(opt, c.play.curSeat, result, true)
 	} else if result.TotalMuti < c.play.PlayConf.MinMultipleLimit {
-		tips = append(tips, TipsQiHuFan)
+		opt.Tips = append(opt.Tips, TipsQiHuFan)
 	} else {
 		c.play.AddHuOperate(opt, c.play.curSeat, result, false)
 	}
-	return tips
 }
 
 // 杠检查器
@@ -43,14 +42,13 @@ type checkerKon struct {
 func NewCheckerKon(play *Play) CheckerSelf {
 	return &checkerKon{play: play}
 }
-func (c *checkerKon) Check(opt *Operates, tips []int) []int {
+func (c *checkerKon) Check(opt *Operates) {
 	if opt.IsMustHu {
-		return tips
+		return
 	}
 	if c.play.playData[c.play.curSeat].canSelfKon(c.play.tilesLai) {
 		opt.AddOperate(OperateKon)
 	}
-	return tips
 }
 
 // 听检查器
@@ -61,15 +59,15 @@ type checkerTing struct {
 func NewCheckerTing(play *Play) CheckerSelf {
 	return &checkerTing{play: play}
 }
-func (c *checkerTing) Check(opt *Operates, tips []int) []int {
+func (c *checkerTing) Check(opt *Operates) {
 	if opt.IsMustHu {
-		return tips
+		return
 	}
 
 	huData := NewHuData(c.play.playData[c.play.curSeat], false)
 	callData := huData.CheckCall()
 	if len(callData) <= 0 {
-		return tips
+		return
 	}
 
 	if c.play.PlayConf.TianTing && !c.play.HasOperate(c.play.curSeat) {
@@ -77,5 +75,4 @@ func (c *checkerTing) Check(opt *Operates, tips []int) []int {
 	} else {
 		opt.AddOperate(OperateTing)
 	}
-	return tips
 }

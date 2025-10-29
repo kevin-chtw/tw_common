@@ -80,7 +80,7 @@ func (p *Play) Deal() {
 	}
 	p.playData[p.banker].PutHandTile(p.dealer.DrawTile())
 	for i := range p.game.GetPlayerCount() {
-		p.freshCallData(i)
+		p.FreshCallData(i)
 	}
 }
 
@@ -89,53 +89,50 @@ func (p *Play) GetPlayData(seat int32) *PlayData {
 }
 
 func (p *Play) FetchSelfOperates() *Operates {
-	opt := &Operates{Value: OperateDiscard}
+	opt := NewOperates(OperateDiscard)
 
-	tips := make([]int, 0)
 	for _, v := range p.selfCheckers {
-		tips = v.Check(opt, tips)
+		v.Check(opt)
 	}
 
-	if len(tips) > 0 {
-		p.sendTips(tips[0], p.curSeat)
+	if len(opt.Tips) > 0 {
+		p.sendTips(opt.Tips[0], p.curSeat)
 	}
 
 	return opt
 }
 
 func (p *Play) FetchWaitOperates(seat int32) *Operates {
-	opt := &Operates{Value: OperatePass}
+	opt := NewOperates(OperatePass)
 	if p.game.GetPlayer(seat).isOut {
 		return opt
 	}
 
-	tips := make([]int, 0)
 	for _, v := range p.waitcheckers {
-		tips = v.Check(seat, opt, tips)
+		v.Check(seat, opt)
 	}
 
-	if len(tips) > 0 {
-		p.sendTips(tips[0], seat)
+	if len(opt.Tips) > 0 {
+		p.sendTips(opt.Tips[0], seat)
 	}
 	return opt
 }
 
 func (p *Play) FetchAfterBuKonOperates(seat int32, checker CheckerWait) *Operates {
-	opt := &Operates{Value: OperatePass}
+	opt := NewOperates(OperatePass)
 	if p.game.GetPlayer(seat).isOut {
 		return opt
 	}
 
-	tips := make([]int, 0)
-	tips = checker.Check(seat, opt, tips)
+	checker.Check(seat, opt)
 
-	if len(tips) > 0 {
-		p.sendTips(tips[0], seat)
+	if len(opt.Tips) > 0 {
+		p.sendTips(opt.Tips[0], seat)
 	}
 	return opt
 }
 
-func (p *Play) sendTips(tips int, seat int32) {
+func (p *Play) sendTips(tips int32, seat int32) {
 	//TODO
 }
 
@@ -166,7 +163,7 @@ func (p *Play) Discard(tile Tile) bool {
 
 	if playData.Discard(tile) {
 		p.addHistory(p.curSeat, OperateDiscard, p.curTile, 0)
-		p.freshCallData(p.curSeat)
+		p.FreshCallData(p.curSeat)
 		p.curTile = tile
 		return true
 	}
@@ -182,7 +179,7 @@ func (p *Play) ZhiKon(seat int32) {
 	playData.kon(p.curTile, p.curSeat, KonTypeZhi)
 	p.playData[p.curSeat].RemoveOutTile()
 	p.addHistory(seat, OperateKon, p.curTile, 0)
-	p.freshCallData(seat)
+	p.FreshCallData(seat)
 }
 
 func (p *Play) TryKon(tile Tile, konType KonType) bool {
@@ -193,7 +190,7 @@ func (p *Play) TryKon(tile Tile, konType KonType) bool {
 
 	playData.kon(tile, p.curSeat, konType)
 	p.addHistory(p.curSeat, OperateKon, p.curTile, 0)
-	p.freshCallData(p.curSeat)
+	p.FreshCallData(p.curSeat)
 	p.curTile = tile
 	return true
 }
@@ -207,7 +204,7 @@ func (p *Play) Pon(seat int32) {
 	playData.Pon(p.curTile, p.curSeat)
 	p.playData[p.curSeat].RemoveOutTile()
 	p.addHistory(seat, OperatePon, p.curTile, 0)
-	p.freshCallData(seat)
+	p.FreshCallData(seat)
 }
 
 func (p *Play) PonTing(seat int32, disTile Tile) {
@@ -243,7 +240,7 @@ func (p *Play) Chow(seat int32, leftTile Tile) {
 	playData.chow(tiles, p.curTile, leftTile, seat)
 	p.playData[p.curSeat].RemoveOutTile()
 	p.addHistory(seat, OperateChow, p.curTile, leftTile)
-	p.freshCallData(seat)
+	p.FreshCallData(seat)
 }
 
 func (p *Play) ChowTing(seat int32, leftTile, disTile Tile) {
@@ -309,7 +306,7 @@ func (p *Play) Draw() Tile {
 	if tile != TileNull {
 		p.playData[p.curSeat].PutHandTile(tile)
 		p.addHistory(p.curSeat, OperateDraw, tile, 0)
-		p.freshCallData(p.curSeat)
+		p.FreshCallData(p.curSeat)
 	}
 	return tile
 }
@@ -356,6 +353,7 @@ func (p *Play) AddHuOperate(opt *Operates, seat int32, result *HuResult, mustHu 
 	p.huResult[seat] = result
 	opt.AddOperate(OperateHu)
 	opt.IsMustHu = mustHu
+	opt.HuMulti = result.TotalMuti
 }
 
 func (p *Play) getLastGameData() *LastGameData {
@@ -411,7 +409,7 @@ func (p *Play) isAllLai(tiles []Tile) bool {
 	return true
 }
 
-func (p *Play) freshCallData(seat int32) {
+func (p *Play) FreshCallData(seat int32) {
 	playData := p.GetPlayData(seat)
 	if !playData.IsTing() {
 		data := NewHuData(playData, false)

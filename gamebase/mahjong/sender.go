@@ -22,10 +22,10 @@ func ToCallData(callData map[Tile]map[Tile]int64) map[int32]*pbmj.CallData {
 	result := make(map[int32]*pbmj.CallData)
 	for tile, callMap := range callData {
 		callPb := &pbmj.CallData{
-			CallTiles: make(map[int32]int64),
+			CallTiles: make(map[int32]*pbmj.CallInfo),
 		}
-		for tile, fan := range callMap {
-			callPb.CallTiles[int32(tile)] = fan
+		for tile, multi := range callMap {
+			callPb.CallTiles[int32(tile)] = &pbmj.CallInfo{Multi: multi}
 		}
 		result[int32(tile)] = callPb
 	}
@@ -104,6 +104,7 @@ func (s *Sender) SendRequestAck(seat int32, operates *Operates) {
 		Seat:        seat,
 		RequestType: int32(operates.Value),
 		Requestid:   s.GetRequestID(seat),
+		HuMulti:     operates.HuMulti,
 	}
 	s.SendMsg(requestAck, seat)
 }
@@ -187,6 +188,14 @@ func (s *Sender) SendDrawAck(tile Tile) {
 	}
 }
 
+func (s *Sender) SendCallDataAck(seat int32) {
+	ack := &pbmj.MJCallDataAck{
+		Seat:     seat,
+		CallData: ToCallData(s.play.GetPlayData(seat).GetCallMap()),
+	}
+	s.SendMsg(ack, seat)
+}
+
 func (s *Sender) SendTrustAck(seat int32, trust bool) {
 	player := s.game.GetPlayer(seat)
 	if player.IsTrusted() == trust {
@@ -198,6 +207,23 @@ func (s *Sender) SendTrustAck(seat int32, trust bool) {
 		Trust: trust,
 	}
 	s.SendMsg(ack, seat)
+}
+
+func (s *Sender) SendScoreChangeAck(sr ScoreReason, scores []int64, tile Tile, paoSeat int32, huSeats []int32) {
+	scoreChangeAck := &pbmj.MJScoreChangeAck{
+		ScoreReason: int32(sr),
+		Scores:      scores,
+		Tile:        tile.ToInt32(),
+		PaoSeat:     paoSeat,
+		HuData:      make([]*pbmj.MJHuData, len(huSeats)),
+	}
+	for i := range huSeats {
+		scoreChangeAck.HuData[i] = &pbmj.MJHuData{
+			Seat:    huSeats[i],
+			HuTypes: s.play.huResult[huSeats[i]].HuTypes,
+		}
+	}
+	s.SendMsg(scoreChangeAck, game.SeatAll)
 }
 
 func (s *Sender) SendResult(liuju bool) {

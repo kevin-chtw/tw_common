@@ -156,6 +156,7 @@ func (t *Table) handleTableMsg(player *Player, req *cproto.GameReq) error {
 	if err != nil {
 		return err
 	}
+	logger.Log.Infof("player %s recive msg %v", player.ack.Uid, msg)
 
 	data := msg.(*cproto.TableMsgReq).GetMsg()
 	if t.game != nil && data != nil {

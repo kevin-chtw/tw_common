@@ -6,11 +6,6 @@ import (
 	"slices"
 )
 
-type Scorelator interface {
-	AddMultiple(t ScoreReason, multiple []int64) // 添加倍数
-	Calculate() []int64                          // 计算分数
-}
-
 // 分数计算器
 type scorelator struct {
 	game      *Game
