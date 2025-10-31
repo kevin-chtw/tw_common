@@ -1,6 +1,7 @@
 package mahjong
 
 import (
+	"github.com/kevin-chtw/tw_proto/game/pbmj"
 	"github.com/sirupsen/logrus"
 )
 
@@ -21,7 +22,7 @@ type Play struct {
 	history      []Action
 	playData     []*PlayData
 	huSeats      []int32
-	huResult     []*HuResult
+	huResult     []*pbmj.MJHuData
 	selfCheckers []CheckerSelf
 	waitcheckers []CheckerWait
 }
@@ -38,7 +39,7 @@ func NewPlay(playImp IPlay, game *Game, dealer *Dealer) *Play {
 		history:      make([]Action, 0),
 		playData:     make([]*PlayData, game.GetPlayerCount()),
 		huSeats:      make([]int32, 0),
-		huResult:     make([]*HuResult, game.GetPlayerCount()),
+		huResult:     make([]*pbmj.MJHuData, game.GetPlayerCount()),
 		selfCheckers: make([]CheckerSelf, 0),
 		waitcheckers: make([]CheckerWait, 0),
 	}
@@ -271,7 +272,7 @@ func (p *Play) ChowTing(seat int32, leftTile, disTile Tile) {
 func (p *Play) Zimo() (multiples []int64) {
 	multiples = make([]int64, p.game.GetPlayerCount())
 	huResult := p.huResult[p.curSeat]
-	multi := p.PlayConf.GetRealMultiple(huResult.TotalMuti)
+	multi := p.PlayConf.GetRealMultiple(huResult.Multi)
 	for i := int32(0); i < p.game.GetPlayerCount(); i++ {
 		if p.game.GetPlayer(i).IsOut() || i == p.curSeat {
 			continue
@@ -290,7 +291,7 @@ func (p *Play) PaoHu(huSeats []int32) []int64 {
 	multiples := make([]int64, p.game.GetPlayerCount())
 	for _, seat := range huSeats {
 		huResult := p.huResult[seat]
-		multi := p.PlayConf.GetRealMultiple(huResult.TotalMuti)
+		multi := p.PlayConf.GetRealMultiple(huResult.Multi)
 		multiples[p.curSeat] -= multi
 		if !p.game.GetPlayer(seat).IsOut() {
 			multiples[seat] = +multi
@@ -348,12 +349,12 @@ func (p *Play) HasOperate(seat int32) bool {
 	return false
 }
 
-func (p *Play) AddHuOperate(opt *Operates, seat int32, result *HuResult, mustHu bool) {
-	opt.Capped = p.PlayConf.IsTopMultiple(result.TotalMuti)
+func (p *Play) AddHuOperate(opt *Operates, seat int32, result *pbmj.MJHuData, mustHu bool) {
+	opt.Capped = p.PlayConf.IsTopMultiple(result.Multi)
 	p.huResult[seat] = result
 	opt.AddOperate(OperateHu)
 	opt.IsMustHu = mustHu
-	opt.HuMulti = result.TotalMuti
+	opt.HuMulti = result.Multi
 }
 
 func (p *Play) getLastGameData() *LastGameData {

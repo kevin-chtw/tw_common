@@ -2,6 +2,8 @@ package mahjong
 
 import (
 	"slices"
+
+	"github.com/kevin-chtw/tw_proto/game/pbmj"
 )
 
 type HuData struct {
@@ -26,7 +28,7 @@ func (h *HuData) GetCurTile() Tile {
 	return h.curTile
 }
 
-func (h *HuData) CheckHu() (*HuResult, bool) {
+func (h *HuData) CheckHu() (*pbmj.MJHuData, bool) {
 	if len(h.Tiles)%3 != 2 {
 		h.Tiles = append(h.Tiles, h.curTile)
 	}
@@ -36,9 +38,9 @@ func (h *HuData) CheckHu() (*HuResult, bool) {
 
 	hyTypes := Service.GetHuTypes(h)
 	hyTypes = append(hyTypes, h.ExtraHuTypes...)
-	result := &HuResult{
-		HuTypes:   hyTypes,
-		TotalMuti: Service.TotalMuti(hyTypes),
+	result := &pbmj.MJHuData{
+		HuTypes: hyTypes,
+		Multi:   Service.TotalMuti(hyTypes),
 	}
 	return result, true
 }
@@ -85,7 +87,7 @@ func (h *HuData) checkCalls() map[Tile]int64 {
 		h.curTile = tile
 		h.Tiles = append(h.Tiles, tile)
 		if result, ok := h.CheckHu(); ok {
-			mutils[tile] = result.TotalMuti
+			mutils[tile] = result.Multi
 		}
 		h.Tiles = originalTiles
 	}

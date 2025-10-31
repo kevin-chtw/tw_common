@@ -105,6 +105,7 @@ func (s *Sender) SendRequestAck(seat int32, operates *Operates) {
 		RequestType: int32(operates.Value),
 		Requestid:   s.GetRequestID(seat),
 		HuMulti:     operates.HuMulti,
+		ChowLpoints: operates.ChowLPoints,
 	}
 	s.SendMsg(requestAck, seat)
 }

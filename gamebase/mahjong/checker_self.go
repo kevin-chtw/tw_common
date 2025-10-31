@@ -27,7 +27,7 @@ func (c *checkerHu) Check(opt *Operates) {
 	if c.play.checkMustHu(c.play.curSeat) {
 		opt.RemoveOperate(OperateDiscard)
 		c.play.AddHuOperate(opt, c.play.curSeat, result, true)
-	} else if result.TotalMuti < c.play.PlayConf.MinMultipleLimit {
+	} else if result.Multi < c.play.PlayConf.MinMultipleLimit {
 		opt.Tips = append(opt.Tips, TipsQiHuFan)
 	} else {
 		c.play.AddHuOperate(opt, c.play.curSeat, result, false)

@@ -26,7 +26,7 @@ func (c *CheckerPao) Check(seat int32, opt *Operates) {
 		c.play.AddHuOperate(opt, seat, result, true)
 	} else if c.play.playData[seat].IsPassHuTile(c.play.curTile) && c.play.PlayConf.HuPass {
 		opt.Tips = append(opt.Tips, TipsPassHu)
-	} else if result.TotalMuti < c.play.PlayConf.MinMultipleLimit {
+	} else if result.Multi < c.play.PlayConf.MinMultipleLimit {
 		opt.Tips = append(opt.Tips, TipsQiHuFan)
 	} else {
 		c.play.AddHuOperate(opt, seat, result, true)
@@ -119,7 +119,6 @@ func (c *CheckerChowTing) Check(seat int32, opt *Operates) {
 	huData := NewHuData(playData, false)
 	leftPoint := max(0, c.play.curTile.Point()-2)
 	color := c.play.curTile.Color()
-
 	for p := leftPoint; p < leftPoint+3; p++ {
 		tiles := make([]Tile, 0)
 		for i := range 3 {
@@ -132,11 +131,13 @@ func (c *CheckerChowTing) Check(seat int32, opt *Operates) {
 		if len(tiles) == 2 {
 			callData := huData.CheckCall()
 			if len(callData) > 0 {
-				opt.AddOperate(OperateChowTing)
-				return
+				opt.ChowLPoints = append(opt.ChowLPoints, int32(p))
 			}
 		}
 		huData.Tiles = append(huData.Tiles, tiles...)
+	}
+	if len(opt.ChowLPoints) > 0 {
+		opt.AddOperate(OperateChowTing)
 	}
 }
 
