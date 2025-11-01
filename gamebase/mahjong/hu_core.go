@@ -207,28 +207,28 @@ func (hc *HuCore) buildQuickTable() {
 	}
 }
 
-func (hc *HuCore) CheckBasicHu(cards []Tile, countLaiZi int) bool {
+func (hc *HuCore) CheckBasicHu(cards []Tile, countLaiZi int) HuCoreType {
 	if !hc.initialized {
-		return false
+		return HU_NON
 	}
 
 	tiles := make([]int, 42)
 	for _, tile := range cards {
 		if !tile.IsValid() {
 			logger.Log.Errorf("tile is invalid: %v", tile)
-			return false
+			return HU_NON
 		}
 		color, point := tile.Info()
 		pos := SEQ_BEGIN_BY_COLOR[color] + point
 		if tiles[pos]++; tiles[pos] > 4 {
-			return false
+			return HU_NON
 		}
 	}
 
 	return hc.checkBasicHu(tiles, countLaiZi)
 }
 
-func (hc *HuCore) checkBasicHu(tiles []int, countLaiZi int) bool {
+func (hc *HuCore) checkBasicHu(tiles []int, countLaiZi int) HuCoreType {
 	var countShun int = 0
 	var byJiangNum uint8 = 0
 	for cor := ColorCharacter; cor <= ColorWind; cor++ {
@@ -255,7 +255,7 @@ func (hc *HuCore) checkBasicHu(tiles []int, countLaiZi int) bool {
 
 		// 预判断
 		if isArrayFlag && !byArray[nVal].Enable {
-			return false
+			return HU_NON
 		}
 
 		nVal4 := hc.getKey(tiles[MAX_VAL_NUM*cor:], MAX_VAL_NUM)
@@ -275,7 +275,7 @@ func (hc *HuCore) checkBasicHu(tiles []int, countLaiZi int) bool {
 		}
 
 		if nNaiTry == 0xFF {
-			return false
+			return HU_NON
 		}
 
 		if (nNum+int(nNaiTry))%3 == 2 {
@@ -285,11 +285,18 @@ func (hc *HuCore) checkBasicHu(tiles []int, countLaiZi int) bool {
 		countLaiZi -= int(nNaiTry)
 
 		if int(byJiangNum) > countLaiZi+1 {
-			return false
+			return HU_NON
 		}
 	}
 
-	return byJiangNum > 0 || countLaiZi >= 2
+	if byJiangNum == 0 && countLaiZi < 2 {
+		return HU_NON
+	}
+
+	if countShun > 0 {
+		return HU_PIN
+	}
+	return HU_PON
 }
 
 func (hc *HuCore) isValidKey(key int) bool {
@@ -391,4 +398,24 @@ func (hc *HuCore) getKey(tiles []int, max int) int {
 		key |= (int)(tiles[i]&BIT_VAL_FLAG) << (BIT_VAL_NUM * i)
 	}
 	return key
+}
+
+func Check7dui(tiles []Tile, countLaiZi int) HuCoreType {
+	if len(tiles)+countLaiZi != 14 {
+		return HU_NON
+	}
+	tileCount := make(map[Tile]int)
+	for _, tile := range tiles {
+		tileCount[tile]++
+	}
+
+	for _, count := range tileCount {
+		if count == 3 || count == 1 {
+			countLaiZi--
+		}
+	}
+	if countLaiZi <= 0 {
+		return HU_NON
+	}
+	return HU_7DUI
 }

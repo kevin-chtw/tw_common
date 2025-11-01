@@ -8,6 +8,7 @@ import (
 
 type HuData struct {
 	*PlayData
+	HuCoreType   HuCoreType
 	Tiles        []Tile
 	ExtraHuTypes []int32 // 额外胡类型
 	curTile      Tile
@@ -16,6 +17,7 @@ type HuData struct {
 func NewHuData(playData *PlayData, self bool) *HuData {
 	data := &HuData{
 		PlayData:     playData,
+		HuCoreType:   HU_NON,
 		Tiles:        slices.Clone(playData.handTiles),
 		curTile:      playData.Play.curTile,
 		ExtraHuTypes: playData.Play.PlayImp.GetExtraHuTypes(playData, self),
@@ -32,7 +34,9 @@ func (h *HuData) CheckHu() (*pbmj.MJHuData, bool) {
 	if len(h.Tiles)%3 != 2 {
 		h.Tiles = append(h.Tiles, h.curTile)
 	}
-	if !h.Play.PlayImp.CheckHu(h) {
+
+	h.HuCoreType = h.Play.PlayImp.CheckHu(h)
+	if h.HuCoreType == HU_NON {
 		return nil, false
 	}
 
@@ -40,7 +44,7 @@ func (h *HuData) CheckHu() (*pbmj.MJHuData, bool) {
 	hyTypes = append(hyTypes, h.ExtraHuTypes...)
 	result := &pbmj.MJHuData{
 		HuTypes: hyTypes,
-		Multi:   Service.TotalMuti(hyTypes),
+		Multi:   Service.TotalMuti(hyTypes, h.Play.game.rule),
 	}
 	return result, true
 }
@@ -74,8 +78,8 @@ func (h *HuData) CheckCall() map[Tile]map[Tile]int64 {
 	return callMap
 }
 
-func (h *HuData) CanHu() bool {
-	tiles, laiCount := h.countLaiZi()
+func (h *HuData) CanHu() HuCoreType {
+	tiles, laiCount := h.CountLaiZi()
 	return DefaultHuCore.CheckBasicHu(tiles, laiCount)
 }
 
@@ -94,7 +98,7 @@ func (h *HuData) checkCalls() map[Tile]int64 {
 	return mutils
 }
 
-func (h *HuData) countLaiZi() ([]Tile, int) {
+func (h *HuData) CountLaiZi() ([]Tile, int) {
 	if len(h.Play.tilesLai) == 0 {
 		return h.Tiles, 0
 	}

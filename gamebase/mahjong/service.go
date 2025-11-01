@@ -13,5 +13,5 @@ type IService interface {
 	GetDefaultRules() []int
 	GetFdRules() map[string]int32
 	GetHuTypes(data *HuData) []int32
-	TotalMuti(types []int32) int64
+	TotalMuti(types []int32, conf *Rule) int64
 }

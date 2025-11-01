@@ -1,21 +1,7 @@
 package mahjong
 
-// 手牌风格类型
-const (
-	HandNone            EHandStyle = iota // 无特殊风格
-	HandNormal                            // 普通手牌
-	HandSevenPairs                        // 七对
-	HandThirteenOrphans                   // 十三幺
-)
-
 const (
 	SeatNull int32 = -1
-)
-
-const (
-	NP4 = 4
-	NP3 = 3
-	NP2 = 2
 )
 
 const (
@@ -149,6 +135,16 @@ const (
 	BIT_VAL_NUM   = 3
 	MAX_NAI_NUM   = 4
 	BIT_VAL_FLAG  = 0x07
+)
+
+// 基础胡型
+type HuCoreType int
+
+const (
+	HU_NON  HuCoreType = iota // 非胡
+	HU_PIN                    // 平胡
+	HU_PON                    // 碰胡
+	HU_7DUI                   // 7对
 )
 
 func GetNextSeat(seat, step, seatCount int32) int32 {

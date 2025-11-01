@@ -6,7 +6,7 @@ import (
 )
 
 type IPlay interface {
-	CheckHu(data *HuData) bool
+	CheckHu(data *HuData) HuCoreType
 	GetExtraHuTypes(data *PlayData, self bool) []int32
 }
 
@@ -330,6 +330,10 @@ func (p *Play) DoSwitchSeat(seat int32) {
 
 func (p *Play) GetCurSeat() int32 {
 	return p.curSeat
+}
+
+func (p *Play) GetBanker() int32 {
+	return p.banker
 }
 
 func (p *Play) GetCurTile() Tile {

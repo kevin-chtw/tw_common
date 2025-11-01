@@ -11,7 +11,7 @@ import (
 type Case struct {
 	cards []mahjong.Tile
 	laiZi int
-	want  bool
+	want  mahjong.HuCoreType
 }
 
 func Test_Hu(t *testing.T) {
@@ -25,17 +25,17 @@ func Test_Hu(t *testing.T) {
 		{
 			cards: []mahjong.Tile{17, 17, 33, 33, 49, 49, 65, 65, 81, 81, 97, 97, 113, 113},
 			laiZi: 0,
-			want:  true,
+			want:  mahjong.HU_PIN,
 		},
 		{
 			cards: []mahjong.Tile{17, 17, 33, 49, 65, 65, 65, 81, 81, 97, 97},
 			laiZi: 0,
-			want:  true,
+			want:  mahjong.HU_PIN,
 		},
 		{
 			cards: []mahjong.Tile{625, 97, 513, 577, 513, 273, 529, 561, 257, 273, 609, 641, 625, 113},
 			laiZi: 0,
-			want:  false,
+			want:  mahjong.HU_NON,
 		},
 	}
 
