@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"sync"
+	"time"
 
 	"github.com/kevin-chtw/tw_common/utils"
 	"github.com/kevin-chtw/tw_proto/cproto"
@@ -47,10 +48,12 @@ type Table struct {
 	handlers       map[string]func(*Player, proto.Message) error
 	gameMutex      sync.Mutex // 保护game的对象锁
 	game           IGame      // 游戏逻辑处理接口
+	dissolveMutex  sync.Mutex // 保护dissovle的对象锁
 	historyMsg     map[string][]*cproto.GameAck
 	historyJsonMsg map[string][]*cproto.GameAck
 	historyMutex   sync.Mutex // 保护historyMsg的锁
 	gameOnce       sync.Once  // 确保每局游戏结束只执行一次
+	dissovle       *cproto.GameDissolveAck
 }
 
 // NewTable 创建新的游戏桌实例
@@ -86,6 +89,7 @@ func TypeUrl(src proto.Message) string {
 func (t *Table) init() {
 	t.handlers[TypeUrl(&cproto.EnterGameReq{})] = t.handleEnterGame
 	t.handlers[TypeUrl(&cproto.GameReadyReq{})] = t.handleGameReady
+	t.handlers[TypeUrl(&cproto.GameDissolveReq{})] = t.handleGameDissolve
 	t.handlers[TypeUrl(&cproto.TableMsgReq{})] = t.handleTableMsg
 }
 
@@ -119,7 +123,7 @@ func (t *Table) handleEnterGame(player *Player, _ proto.Message) error {
 		t.sendHisMsges(player)
 	} else {
 		player.entered = true
-		t.broadcastTablePlayer(player)
+		t.broadcast(player.ack)
 		t.notifyTablePlayer(player, false)
 		t.checkBegin()
 	}
@@ -141,6 +145,47 @@ func (t *Table) handleGameReady(player *Player, msg proto.Message) error {
 		t.checkBegin()
 	}
 	return nil
+}
+
+func (t *Table) handleGameDissolve(player *Player, msg proto.Message) error {
+	req := msg.(*cproto.GameDissolveReq)
+	if !t.isOnTable(player.ack.Uid) {
+		return errors.New("player not on table")
+	}
+	if t.dissovle == nil {
+		t.dissolveMutex.Lock()
+		defer t.dissolveMutex.Unlock()
+		t.dissovle = &cproto.GameDissolveAck{
+			Starttime: time.Now().Unix(),
+			Endtime:   time.Now().Add(2 * time.Minute).Unix(),
+			Agreed:    make(map[int32]bool),
+		}
+	}
+	t.dissolveMutex.Lock()
+	t.dissovle.Agreed[player.ack.Seat] = req.Agree
+	t.dissolveMutex.Unlock()
+	t.broadcast(t.dissovle)
+	t.checkDissolve()
+	return nil
+}
+
+func (t *Table) checkDissolve() {
+	t.dissolveMutex.Lock()
+	defer t.dissolveMutex.Unlock()
+
+	if t.dissovle == nil {
+		return
+	}
+	if t.dissovle.Endtime >= time.Now().Unix() && len(t.dissovle.Agreed) < int(t.playerCount) {
+		return
+	}
+
+	ack := &cproto.GameDissolveResultAck{
+		Dissovle: true,
+	}
+	t.broadcast(ack)
+	t.dissovle = nil
+	t.gameOver()
 }
 
 func (t *Table) gameBegin() {
@@ -166,28 +211,19 @@ func (t *Table) handleTableMsg(player *Player, msg proto.Message) error {
 	return errors.New("game not started")
 }
 
-func (t *Table) broadcastTablePlayer(player *Player) {
-	msg := t.newMsg(player.ack)
-	t.broadcast(msg)
-	logger.Log.Infof("Player %s added to table %d", player.ack.Uid, t.tableID)
-}
-
 func (t *Table) broadcastReady(player *Player) {
 	ack := &cproto.GameReadyAck{
 		Ready: player.ack.Ready,
 		Seat:  player.ack.Seat,
 	}
-	msg := t.newMsg(ack)
-	t.broadcast(msg)
-	logger.Log.Infof("Player %s added to table %d", player.ack.Uid, t.tableID)
+	t.broadcast(ack)
 }
 
 func (t *Table) sendGameBegin() {
 	ack := &cproto.GameBeginAck{
 		CurGameCount: t.curGameCount,
 	}
-	msg := t.newMsg(ack)
-	t.broadcast(msg)
+	t.broadcast(ack)
 }
 func (t *Table) sendGameOver() {
 	ack := &cproto.GameOverAck{
@@ -198,8 +234,7 @@ func (t *Table) sendGameOver() {
 		t.players[i].ack.Ready = false
 		ack.Ready = append(ack.Ready, false)
 	}
-	msg := t.newMsg(ack)
-	t.broadcast(msg)
+	t.broadcast(ack)
 }
 
 func (t *Table) notifyTablePlayer(player *Player, resume bool) {
@@ -302,6 +337,21 @@ func (t *Table) HandleAddPlayer(ctx context.Context, msg proto.Message) (proto.M
 
 func (t *Table) HandleCancelTable(ctx context.Context, msg proto.Message) (proto.Message, error) {
 	t.gameOver()
+	return &sproto.EmptyAck{}, nil
+}
+
+func (t *Table) HandleExitTable(ctx context.Context, msg proto.Message) (proto.Message, error) {
+	req := msg.(*sproto.ExitTableReq)
+	if !t.isOnTable(req.Playerid) {
+		return nil, errors.New("player not on table")
+	}
+
+	if t.curGameCount > 0 {
+		return nil, errors.New("game is not over")
+	}
+
+	delete(t.players, req.Playerid)
+	playerManager.Delete(req.Playerid) // 从玩家管理器中删除玩家
 	return &sproto.EmptyAck{}, nil
 }
 
@@ -485,6 +535,7 @@ func (t *Table) GetScoreBase() int64 {
 }
 
 func (t *Table) tick() {
+	t.checkDissolve()
 	t.gameMutex.Lock()
 	defer t.gameMutex.Unlock()
 	if t.game != nil {
@@ -492,7 +543,8 @@ func (t *Table) tick() {
 	}
 }
 
-func (t *Table) broadcast(msg *cproto.GameAck) {
+func (t *Table) broadcast(ack proto.Message) {
+	msg := t.newMsg(ack)
 	for _, player := range t.players {
 		t.sendMsg(msg, player)
 	}

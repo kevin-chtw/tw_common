@@ -36,6 +36,7 @@ func (m *Remote) Init() {
 	m.handlers[utils.TypeUrl(&sproto.AddTableReq{})] = (*game.Table).HandleAddTable
 	m.handlers[utils.TypeUrl(&sproto.AddPlayerReq{})] = (*game.Table).HandleAddPlayer
 	m.handlers[utils.TypeUrl(&sproto.CancelTableReq{})] = (*game.Table).HandleCancelTable
+	m.handlers[utils.TypeUrl(&sproto.ExitTableReq{})] = (*game.Table).HandleExitTable
 	m.handlers[utils.TypeUrl(&sproto.NetStateReq{})] = (*game.Table).HandleNetState
 }
 
