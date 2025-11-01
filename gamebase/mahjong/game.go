@@ -83,6 +83,16 @@ func (g *Game) GetPlayer(seat int32) *Player {
 	return nil
 }
 
+func (g *Game) GetRestCount() int {
+	count := 0
+	for _, p := range g.players {
+		if !p.IsOut() {
+			count++
+		}
+	}
+	return count
+}
+
 func (g *Game) SetNextState(newFn func(IGame, ...any) IState, args ...any) {
 	g.nextState = newFn(g.IGame, args...)
 }

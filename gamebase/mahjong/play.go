@@ -80,9 +80,6 @@ func (p *Play) Deal() {
 		p.playData[i].handTiles = p.dealer.Deal(Service.GetHandCount())
 	}
 	p.playData[p.banker].PutHandTile(p.dealer.DrawTile())
-	for i := range p.game.GetPlayerCount() {
-		p.FreshCallData(i)
-	}
 }
 
 func (p *Play) GetPlayData(seat int32) *PlayData {
@@ -322,9 +319,12 @@ func (p *Play) IsAfterKon() bool {
 
 func (p *Play) DoSwitchSeat(seat int32) {
 	if seat == SeatNull {
-		p.curSeat = GetNextSeat(p.curSeat, 1, p.game.GetPlayerCount())
-	} else {
-		p.curSeat = seat
+		seat = GetNextSeat(p.curSeat, 1, p.game.GetPlayerCount())
+	}
+	for p.curSeat = seat; p.curSeat != seat; p.curSeat = GetNextSeat(p.curSeat, 1, p.game.GetPlayerCount()) {
+		if !p.game.GetPlayer(p.curSeat).IsOut() {
+			return
+		}
 	}
 }
 

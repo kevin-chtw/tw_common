@@ -38,6 +38,7 @@ const (
 	ScoreReasonZhiKon                     // 直杠 3
 	ScoreReasonTuiKon                     // 退杠 4
 	ScoreReasonChaJiao                    // 查叫 5
+	ScoreReasonZhuanYu                    // 转雨 6
 )
 
 type ScoreType int //算分方式

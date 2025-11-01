@@ -84,9 +84,8 @@ func (s *Sender) SendOpenDoorAck() {
 	count := s.game.GetPlayerCount()
 	for i := range count {
 		openDoor := &pbmj.MJOpenDoorAck{
-			Seat:     i,
-			Tiles:    s.play.GetPlayData(i).GetHandTilesInt32(),
-			CallData: ToCallData(s.play.GetPlayData(i).GetCallMap()),
+			Seat:  i,
+			Tiles: s.play.GetPlayData(i).GetHandTilesInt32(),
 		}
 		s.SendMsg(openDoor, i)
 	}
@@ -167,6 +166,8 @@ func (s *Sender) SendHuAck(huSeats []int32, paoSeat int32) {
 	for i := range huSeats {
 		huAck.HuData[i] = &pbmj.MJHuData{
 			Seat:    huSeats[i],
+			Multi:   s.play.huResult[huSeats[i]].Multi,
+			Gen:     s.play.huResult[huSeats[i]].Gen,
 			HuTypes: s.play.huResult[huSeats[i]].HuTypes,
 		}
 	}
