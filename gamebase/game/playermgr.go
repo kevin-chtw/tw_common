@@ -3,6 +3,8 @@ package game
 import (
 	"errors"
 	"sync"
+
+	"github.com/kevin-chtw/tw_proto/sproto"
 )
 
 // TableManager 管理游戏桌
@@ -27,15 +29,15 @@ func (p *PlayerManager) Get(userID string) (player *Player) {
 	return
 }
 
-func (p *PlayerManager) Store(userId string) (*Player, error) {
+func (p *PlayerManager) Store(ack *sproto.PlayerInfoAck, seat int32, score int64) (*Player, error) {
 	p.mu.Lock()
 	defer p.mu.Unlock()
-	if _, ok := p.players[userId]; ok {
+	if _, ok := p.players[ack.Uid]; ok {
 		return nil, errors.New("player is already in game")
 	}
 
-	player := NewPlayer(userId)
-	p.players[userId] = player
+	player := newPlayer(ack, seat, score)
+	p.players[ack.Uid] = player
 	return player, nil
 }
 

@@ -16,22 +16,25 @@ type Player struct {
 	online  bool  // 玩家是否在线
 	enter   bool  // 玩家是否进入游戏
 	entered bool  // 玩家是否进入过游戏
-	ready   bool  // 玩家是否准备
 }
 
-// NewPlayer 创建新玩家实例
-func NewPlayer(id string) *Player {
-	return &Player{
-		ack:    &cproto.TablePlayerAck{Uid: id},
+// newPlayer 创建新玩家实例
+func newPlayer(ack *sproto.PlayerInfoAck, seat int32, score int64) *Player {
+	p := &Player{
+		score:  score,
 		online: true,
 		enter:  false,
-		ready:  false,
 	}
-}
-
-// SetSeat 设置玩家座位号
-func (p *Player) SetSeat(seat int32) {
-	p.ack.Seat = seat
+	p.ack = &cproto.TablePlayerAck{
+		Uid:      ack.Uid,
+		Seat:     seat,
+		Avatar:   ack.Avatar,
+		Nickname: ack.Nickname,
+		Vip:      ack.Vip,
+		Diamond:  ack.Diamond,
+		Ready:    false,
+	}
+	return p
 }
 
 func (p *Player) GetSeat() int32 {
@@ -45,13 +48,6 @@ func (p *Player) AddScore(score int64) {
 
 func (p *Player) GetScore() int64 {
 	return p.score
-}
-
-func (p *Player) setAck(ack *sproto.PlayerInfoAck) {
-	p.ack.Avatar = ack.Avatar
-	p.ack.Nickname = ack.Nickname
-	p.ack.Vip = ack.Vip
-	p.ack.Diamond = ack.Diamond
 }
 
 // HandleMessage 处理玩家消息

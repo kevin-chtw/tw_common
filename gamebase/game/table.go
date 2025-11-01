@@ -44,7 +44,7 @@ type Table struct {
 	description    string           // 房间描述
 	fdproperty     map[string]int32 // 房间属性
 	lastHandData   any
-	handlers       map[string]func(*Player, *cproto.GameReq) error
+	handlers       map[string]func(*Player, proto.Message) error
 	gameMutex      sync.Mutex // 保护game的对象锁
 	game           IGame      // 游戏逻辑处理接口
 	historyMsg     map[string][]*cproto.GameAck
@@ -63,7 +63,7 @@ func NewTable(matchID, tableID int32, app pitaya.Pitaya) *Table {
 		players:        make(map[string]*Player),
 		fdproperty:     make(map[string]int32),
 		app:            app,
-		handlers:       make(map[string]func(*Player, *cproto.GameReq) error),
+		handlers:       make(map[string]func(*Player, proto.Message) error),
 		gameMutex:      sync.Mutex{},
 		game:           nil,
 		historyMsg:     make(map[string][]*cproto.GameAck),
@@ -85,6 +85,7 @@ func TypeUrl(src proto.Message) string {
 
 func (t *Table) init() {
 	t.handlers[TypeUrl(&cproto.EnterGameReq{})] = t.handleEnterGame
+	t.handlers[TypeUrl(&cproto.GameReadyReq{})] = t.handleGameReady
 	t.handlers[TypeUrl(&cproto.TableMsgReq{})] = t.handleTableMsg
 }
 
@@ -93,47 +94,52 @@ func (t *Table) OnPlayerMsg(ctx context.Context, player *Player, req *cproto.Gam
 	if req == nil || req.Req == nil {
 		return errors.New("invalid request")
 	}
+	msg, err := req.Req.UnmarshalNew()
+	if err != nil {
+		return err
+	}
+	logger.Log.Infof("player %s recive msg %v", player.ack.Uid, msg)
 	if handler, ok := t.handlers[req.Req.TypeUrl]; ok {
-		return handler(player, req)
+		return handler(player, msg)
 	}
 
 	return errors.New("unknown request type")
 }
 
 // handleEnterGame 处理玩家进入游戏请求
-func (t *Table) handleEnterGame(player *Player, _ *cproto.GameReq) error {
+func (t *Table) handleEnterGame(player *Player, _ proto.Message) error {
 	if !t.isOnTable(player.ack.Uid) {
 		return errors.New("player not on table")
 	}
 
-	rsp, err := t.send2Account(&sproto.PlayerInfoReq{Uid: player.ack.Uid})
-	if err != nil {
-		return err
-	}
-
-	ack := rsp.(*sproto.AccountAck)
-	msg, err := ack.Ack.UnmarshalNew()
-	if err != nil {
-		return err
-	}
-
 	player.enter = true
 	t.sendEnterGame(player)
-	player.setAck(msg.(*sproto.PlayerInfoAck))
 	if player.entered {
 		t.notifyTablePlayer(player, true)
 		t.sendHisMsges(player)
 	} else {
 		player.entered = true
-		player.ready = true
 		t.broadcastTablePlayer(player)
 		t.notifyTablePlayer(player, false)
-		// 检查是否满足开赛条件
-		if t.isAllPlayersReady() {
-			t.gameBegin()
-		}
+		t.checkBegin()
 	}
 
+	return nil
+}
+
+func (t *Table) handleGameReady(player *Player, msg proto.Message) error {
+	if !t.isOnTable(player.ack.Uid) {
+		return errors.New("player not on table")
+	}
+	req := msg.(*cproto.GameReadyReq)
+	if player.ack.Ready == req.Ready {
+		return errors.New("ready state not changed")
+	}
+	player.ack.Ready = req.Ready
+	t.broadcastReady(player)
+	if req.Ready {
+		t.checkBegin()
+	}
 	return nil
 }
 
@@ -149,14 +155,9 @@ func (t *Table) gameBegin() {
 	t.game.OnGameBegin()
 }
 
-func (t *Table) handleTableMsg(player *Player, req *cproto.GameReq) error {
+func (t *Table) handleTableMsg(player *Player, msg proto.Message) error {
 	t.gameMutex.Lock()
 	defer t.gameMutex.Unlock()
-	msg, err := req.Req.UnmarshalNew()
-	if err != nil {
-		return err
-	}
-	logger.Log.Infof("player %s recive msg %v", player.ack.Uid, msg)
 
 	data := msg.(*cproto.TableMsgReq).GetMsg()
 	if t.game != nil && data != nil {
@@ -171,6 +172,16 @@ func (t *Table) broadcastTablePlayer(player *Player) {
 	logger.Log.Infof("Player %s added to table %d", player.ack.Uid, t.tableID)
 }
 
+func (t *Table) broadcastReady(player *Player) {
+	ack := &cproto.GameReadyAck{
+		Ready: player.ack.Ready,
+		Seat:  player.ack.Seat,
+	}
+	msg := t.newMsg(ack)
+	t.broadcast(msg)
+	logger.Log.Infof("Player %s added to table %d", player.ack.Uid, t.tableID)
+}
+
 func (t *Table) sendGameBegin() {
 	ack := &cproto.GameBeginAck{
 		CurGameCount: t.curGameCount,
@@ -181,14 +192,14 @@ func (t *Table) sendGameBegin() {
 func (t *Table) sendGameOver() {
 	ack := &cproto.GameOverAck{
 		CurGameCount: t.curGameCount,
+		Ready:        make([]bool, 0),
+	}
+	for i := range t.players {
+		t.players[i].ack.Ready = false
+		ack.Ready = append(ack.Ready, false)
 	}
 	msg := t.newMsg(ack)
 	t.broadcast(msg)
-
-	gameOver := &sproto.GameOverReq{
-		CurGameCount: t.curGameCount,
-	}
-	t.Send2Match(gameOver)
 }
 
 func (t *Table) notifyTablePlayer(player *Player, resume bool) {
@@ -237,16 +248,17 @@ func (t *Table) isOnTable(playerID string) bool {
 	return false
 }
 
-func (t *Table) isAllPlayersReady() bool {
-	if len(t.players) != int(t.playerCount) {
-		return false
+func (t *Table) checkBegin() {
+	if len(t.players) <= int(t.playerCount) {
+		return
 	}
+
 	for _, player := range t.players {
-		if !player.ready {
-			return false
+		if !player.enter || (!player.ack.Ready && t.MatchType != "fdtable") {
+			return
 		}
 	}
-	return true
+	t.gameBegin()
 }
 
 // HandleStartGame 处理开始游戏请求
@@ -269,13 +281,20 @@ func (t *Table) HandleAddPlayer(ctx context.Context, msg proto.Message) (proto.M
 		return nil, errors.New("player already on table")
 	}
 
-	player, err := playerManager.Store(req.Playerid)
+	rsp, err := t.send2Account(&sproto.PlayerInfoReq{Uid: req.Playerid})
+	if err != nil {
+		return nil, err
+	}
+	ack := rsp.(*sproto.AccountAck)
+	account, err := ack.Ack.UnmarshalNew()
+	if err != nil {
+		return nil, err
+	}
+	player, err := playerManager.Store(account.(*sproto.PlayerInfoAck), req.Seat, req.Score)
 	if err != nil {
 		return nil, err
 	}
 	player.Ctx = ctx
-	player.SetSeat(req.Seat)
-	player.AddScore(req.Score)
 	t.players[req.Playerid] = player
 
 	return &sproto.EmptyAck{}, nil
@@ -327,17 +346,20 @@ func (t *Table) NotifyGameOver(gameId int32) {
 			})
 		}
 		t.Send2Match(result)
-
+		t.sendGameOver()
 		if t.curGameCount >= t.gameCount {
 			go t.gameOver()
 		} else {
-			go t.gameBegin()
+			go t.checkBegin()
 		}
 	})
 }
 
 func (t *Table) gameOver() {
-	t.sendGameOver()
+	gameOver := &sproto.GameOverReq{
+		CurGameCount: t.curGameCount,
+	}
+	t.Send2Match(gameOver)
 	for _, player := range t.players {
 		playerManager.Delete(player.ack.Uid) // 从玩家管理器中删除玩家
 	}
