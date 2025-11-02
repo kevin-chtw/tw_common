@@ -1,6 +1,7 @@
 package mahjong
 
 type ScoreNode struct {
+	winSeat     int32
 	scoreReason ScoreReason
 	Scores      []int64
 }
@@ -17,7 +18,7 @@ func NewScorelatorMany(g *Game, scoreType ScoreType) *ScorelatorMany {
 	}
 }
 
-func (s *ScorelatorMany) CalcMulti(sr ScoreReason, multi []int64) []int64 {
+func (s *ScorelatorMany) CalcMulti(win int32, sr ScoreReason, multi []int64) []int64 {
 	base := s.game.GetScoreBase()
 	takeScores := make([]int64, 0)
 	winScores := make([]int64, 0)
@@ -29,10 +30,20 @@ func (s *ScorelatorMany) CalcMulti(sr ScoreReason, multi []int64) []int64 {
 		takeScores = append(takeScores, takescore)
 		winScores = append(winScores, multi[i]*base)
 	}
-	return s.calc(sr, takeScores, winScores)
+	return s.calc(win, sr, takeScores, winScores)
 }
 
-func (s *ScorelatorMany) CalcScores(sr ScoreReason, scores []int64) []int64 {
+func (s *ScorelatorMany) GetKonScores(seat int32) []*ScoreNode {
+	node := make([]*ScoreNode, 0)
+	for _, v := range s.scores {
+		if v.winSeat == seat && (v.scoreReason == ScoreReasonAnKon || v.scoreReason == ScoreReasonZhiKon || v.scoreReason == ScoreReasonBuKon) {
+			node = append(node, v)
+		}
+	}
+	return node
+}
+
+func (s *ScorelatorMany) CalcScores(win int32, sr ScoreReason, scores []int64) []int64 {
 	takeScores := make([]int64, 0)
 	for i, p := range s.game.players {
 		takescore := p.GetCurScore()
@@ -41,7 +52,7 @@ func (s *ScorelatorMany) CalcScores(sr ScoreReason, scores []int64) []int64 {
 		}
 		takeScores = append(takeScores, takescore)
 	}
-	return s.calc(sr, takeScores, scores)
+	return s.calc(win, sr, takeScores, scores)
 }
 
 func (s *ScorelatorMany) CalcKon(sr ScoreReason, win, loss int32, lossMulti, otherMulti int64) []int64 {
@@ -57,7 +68,7 @@ func (s *ScorelatorMany) CalcKon(sr ScoreReason, win, loss int32, lossMulti, oth
 			multi[win] -= otherMulti
 		}
 	}
-	return s.CalcMulti(sr, multi)
+	return s.CalcMulti(win, sr, multi)
 }
 
 func (s *ScorelatorMany) RemoveLastScore() *ScoreNode {
@@ -69,19 +80,20 @@ func (s *ScorelatorMany) RemoveLastScore() *ScoreNode {
 	return sn
 }
 
-func (s *ScorelatorMany) addScores(sr ScoreReason, scores []int64) {
+func (s *ScorelatorMany) addScores(win int32, sr ScoreReason, scores []int64) {
 	sn := &ScoreNode{
+		winSeat:     win,
 		scoreReason: sr,
 		Scores:      scores,
 	}
 	s.scores = append(s.scores, sn)
 }
 
-func (s *ScorelatorMany) calc(sr ScoreReason, takeScores, winScores []int64) []int64 {
+func (s *ScorelatorMany) calc(win int32, sr ScoreReason, takeScores, winScores []int64) []int64 {
 	final := s.calculate(takeScores, winScores)
 	for i, p := range s.game.players {
 		p.AddScoreChange(final[i])
 	}
-	s.addScores(sr, final)
+	s.addScores(win, sr, final)
 	return final
 }
