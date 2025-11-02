@@ -379,6 +379,8 @@ func (t *Table) HandleNetState(ctx context.Context, msg proto.Message) (proto.Me
 		player.enter = false
 	}
 
+	t.gameMutex.Lock()
+	defer t.gameMutex.Unlock()
 	if t.game != nil {
 		t.game.OnNetChange(player, req.Online)
 	}

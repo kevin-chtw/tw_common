@@ -151,7 +151,12 @@ func (c *CheckerPonTing) Check(seat int32, opt *Operates) {
 		return
 	}
 
-	huData := NewHuData(c.play.playData[seat], false)
+	playData := c.play.playData[seat]
+	if playData.ting {
+		return
+	}
+
+	huData := NewHuData(playData, false)
 	huData.Tiles = RemoveElements(huData.Tiles, c.play.curTile, 2)
 	callData := huData.CheckCall()
 	if len(callData) > 0 {
