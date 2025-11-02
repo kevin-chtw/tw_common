@@ -1,5 +1,7 @@
 package mahjong
 
+import "github.com/kevin-chtw/tw_proto/game/pbmj"
+
 const defaultHandCount = 14
 
 var (
@@ -12,6 +14,5 @@ type IService interface {
 	GetHandCount() int
 	GetDefaultRules() []int
 	GetFdRules() map[string]int32
-	GetHuTypes(data *HuData) []int32
-	TotalMuti(types []int32, conf *Rule) int64
+	GetHuResult(data *HuData) *pbmj.MJHuData
 }

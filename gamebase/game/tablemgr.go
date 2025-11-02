@@ -41,8 +41,13 @@ func (t *TableManager) tick() {
 		}
 	}()
 	t.mu.RLock()
-	defer t.mu.RUnlock()
+	tables := make([]*Table, 0, len(t.tables))
 	for _, table := range t.tables {
+		tables = append(tables, table)
+	}
+	t.mu.RUnlock()
+
+	for _, table := range tables {
 		table.tick()
 	}
 }

@@ -40,13 +40,17 @@ func (h *HuData) CheckHu() (*pbmj.MJHuData, bool) {
 		return nil, false
 	}
 
-	hyTypes := Service.GetHuTypes(h)
-	hyTypes = append(hyTypes, h.ExtraHuTypes...)
-	result := &pbmj.MJHuData{
-		HuTypes: hyTypes,
-		Multi:   Service.TotalMuti(hyTypes, h.Play.game.rule),
-	}
+	result := Service.GetHuResult(h)
 	return result, true
+}
+
+func (h *HuData) InitHuResult() *pbmj.MJHuData {
+	r := &pbmj.MJHuData{
+		Seat:    h.PlayData.seat,
+		HuTypes: make([]int32, 0),
+	}
+	r.HuTypes = append(r.HuTypes, h.ExtraHuTypes...)
+	return r
 }
 
 func (h *HuData) CheckCall() map[Tile]map[Tile]int64 {

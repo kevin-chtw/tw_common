@@ -63,6 +63,10 @@ func (p *Play) Initialize(pdfn func(*Play, int32) *PlayData) {
 	}
 }
 
+func (p *Play) GetPlayerCount() int32 {
+	return p.game.GetPlayerCount()
+}
+
 func (p *Play) GetCurScores() []int64 {
 	count := p.game.GetPlayerCount()
 	scores := make([]int64, count)

@@ -104,7 +104,7 @@ func (t *Table) OnPlayerMsg(ctx context.Context, player *Player, req *cproto.Gam
 	if err != nil {
 		return err
 	}
-	logger.Log.Infof("player %s recive msg %v", player.ack.Uid, msg)
+	logger.Log.Infof("player %s recive msg %v", player.ack.Uid, utils.JsonMarshal.Format(msg))
 	if handler, ok := t.handlers[req.Req.TypeUrl]; ok {
 		return handler(player, msg)
 	}
@@ -154,23 +154,23 @@ func (t *Table) handleGameDissolve(player *Player, msg proto.Message) error {
 	if !t.isOnTable(player.ack.Uid) {
 		return errors.New("player not on table")
 	}
-	t.dissolveMutex.Lock()
+	//t.dissolveMutex.Lock()
 	if t.dissovle == nil {
 		t.dissovle = &cproto.GameDissolveAck{
 			Starttime: time.Now().Unix(),
-			Endtime:   time.Now().Add(2 * time.Minute).Unix(),
+			Endtime:   time.Now().Add(5 * time.Minute).Unix(),
 			Agreed:    make(map[int32]bool),
 		}
 	}
 	t.dissovle.Agreed[player.ack.Seat] = req.Agree
-	t.dissolveMutex.Unlock()
+	//t.dissolveMutex.Unlock()
 	t.broadcast(t.dissovle)
 	t.checkDissolve()
 	return nil
 }
 
 func (t *Table) checkDissolve() {
-	t.dissolveMutex.Lock()
+	//t.dissolveMutex.Lock()
 
 	if t.dissovle == nil {
 		return
@@ -179,7 +179,7 @@ func (t *Table) checkDissolve() {
 		return
 	}
 	t.dissovle = nil
-	t.dissolveMutex.Unlock()
+	//t.dissolveMutex.Unlock()
 
 	ack := &cproto.GameDissolveResultAck{
 		Dissovle: true,
@@ -289,7 +289,7 @@ func (t *Table) checkBegin() {
 	}
 
 	for _, player := range t.players {
-		if !player.enter || (!player.ack.Ready && t.MatchType != "fdtable") {
+		if !player.enter || (!player.ack.Ready && t.MatchType == "fdtable") {
 			return
 		}
 	}
@@ -418,6 +418,7 @@ func (t *Table) NotifyGameOver(gameId int32, roundData string) {
 func (t *Table) gameOver() {
 	gameOver := &sproto.GameOverReq{
 		CurGameCount: t.curGameCount,
+		Tableid:      t.tableID,
 	}
 	t.Send2Match(gameOver)
 	for _, player := range t.players {
@@ -465,7 +466,7 @@ func (t *Table) Send2Match(msg proto.Message) {
 }
 
 func (t *Table) Send2Player(ack proto.Message, seat int32) {
-	logger.Log.Infof("seat: %d ack: %v", seat, ack)
+	logger.Log.Infof("seat: %d ack: %v", seat, utils.JsonMarshal.Format(ack))
 
 	if seat != SeatAll {
 		player := t.GetGamePlayer(seat)
@@ -554,6 +555,7 @@ func (t *Table) tick() {
 }
 
 func (t *Table) broadcast(ack proto.Message) {
+	logger.Log.Info(ack)
 	msg := t.newMsg(ack)
 	for _, player := range t.players {
 		t.sendMsg(msg, player)
@@ -601,6 +603,9 @@ func (t *Table) sendHisMsges(player *Player) {
 		t.sendMsg(msg, player)
 	}
 	t.sendMsg(t.newMsg(&cproto.HisEndAck{}), player)
+	if t.dissovle != nil {
+		t.sendMsg(t.newMsg(t.dissovle), player)
+	}
 }
 
 // 辅助函数：获取历史消息
