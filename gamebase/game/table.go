@@ -54,8 +54,8 @@ type Table struct {
 	historyMutex   sync.Mutex // 保护historyMsg的锁
 	gameOnce       sync.Once  // 确保每局游戏结束只执行一次
 
-	dissolveMutex sync.Mutex // 保护dissovle的对象锁
-	dissovle      *cproto.GameDissolveAck
+	//dissolveMutex sync.Mutex // 保护dissovle的对象锁
+	dissovle *cproto.GameDissolveAck
 }
 
 // NewTable 创建新的游戏桌实例
