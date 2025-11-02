@@ -335,9 +335,16 @@ func (p *Play) DoSwitchSeat(seat int32) {
 	if seat == SeatNull {
 		seat = GetNextSeat(p.curSeat, 1, p.game.GetPlayerCount())
 	}
-	for p.curSeat = seat; p.curSeat != seat; p.curSeat = GetNextSeat(p.curSeat, 1, p.game.GetPlayerCount()) {
-		if !p.game.GetPlayer(p.curSeat).IsOut() {
+
+	startSeat := seat
+	for {
+		if !p.game.GetPlayer(seat).IsOut() {
+			p.curSeat = seat
 			return
+		}
+		seat = GetNextSeat(seat, 1, p.game.GetPlayerCount())
+		if seat == startSeat {
+			break
 		}
 	}
 }
