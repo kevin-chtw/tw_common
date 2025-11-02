@@ -30,30 +30,32 @@ type IGame interface {
 
 // Table 表示一个游戏桌实例
 type Table struct {
-	MatchType      string             //
-	matchID        int32              // 比赛ID
-	tableID        int32              // 桌号
-	matchServerId  string             // 匹配服务ID
-	players        map[string]*Player // 玩家ID -> Player
-	app            pitaya.Pitaya
-	scoreBase      int64            // 分数基数
-	gameCount      int32            // 游戏局数
-	curGameCount   int32            // 当前局数
-	playerCount    int32            // 玩家数量
-	property       string           // 游戏配置
-	creator        string           // 创建者ID
-	description    string           // 房间描述
-	fdproperty     map[string]int32 // 房间属性
-	lastHandData   any
-	handlers       map[string]func(*Player, proto.Message) error
-	gameMutex      sync.Mutex // 保护game的对象锁
-	game           IGame      // 游戏逻辑处理接口
-	dissolveMutex  sync.Mutex // 保护dissovle的对象锁
+	MatchType     string             //
+	matchID       int32              // 比赛ID
+	tableID       int32              // 桌号
+	matchServerId string             // 匹配服务ID
+	players       map[string]*Player // 玩家ID -> Player
+	app           pitaya.Pitaya
+	scoreBase     int64            // 分数基数
+	gameCount     int32            // 游戏局数
+	curGameCount  int32            // 当前局数
+	playerCount   int32            // 玩家数量
+	property      string           // 游戏配置
+	creator       string           // 创建者ID
+	description   string           // 房间描述
+	fdproperty    map[string]int32 // 房间属性
+	lastHandData  any
+	handlers      map[string]func(*Player, proto.Message) error
+	gameMutex     sync.Mutex // 保护game的对象锁
+	game          IGame      // 游戏逻辑处理接口
+
 	historyMsg     map[string][]*cproto.GameAck
 	historyJsonMsg map[string][]*cproto.GameAck
 	historyMutex   sync.Mutex // 保护historyMsg的锁
 	gameOnce       sync.Once  // 确保每局游戏结束只执行一次
-	dissovle       *cproto.GameDissolveAck
+
+	dissolveMutex sync.Mutex // 保护dissovle的对象锁
+	dissovle      *cproto.GameDissolveAck
 }
 
 // NewTable 创建新的游戏桌实例
@@ -152,16 +154,14 @@ func (t *Table) handleGameDissolve(player *Player, msg proto.Message) error {
 	if !t.isOnTable(player.ack.Uid) {
 		return errors.New("player not on table")
 	}
+	t.dissolveMutex.Lock()
 	if t.dissovle == nil {
-		t.dissolveMutex.Lock()
-		defer t.dissolveMutex.Unlock()
 		t.dissovle = &cproto.GameDissolveAck{
 			Starttime: time.Now().Unix(),
 			Endtime:   time.Now().Add(2 * time.Minute).Unix(),
 			Agreed:    make(map[int32]bool),
 		}
 	}
-	t.dissolveMutex.Lock()
 	t.dissovle.Agreed[player.ack.Seat] = req.Agree
 	t.dissolveMutex.Unlock()
 	t.broadcast(t.dissovle)
@@ -171,7 +171,6 @@ func (t *Table) handleGameDissolve(player *Player, msg proto.Message) error {
 
 func (t *Table) checkDissolve() {
 	t.dissolveMutex.Lock()
-	defer t.dissolveMutex.Unlock()
 
 	if t.dissovle == nil {
 		return
@@ -179,12 +178,13 @@ func (t *Table) checkDissolve() {
 	if t.dissovle.Endtime >= time.Now().Unix() && len(t.dissovle.Agreed) < int(t.playerCount) {
 		return
 	}
+	t.dissovle = nil
+	t.dissolveMutex.Unlock()
 
 	ack := &cproto.GameDissolveResultAck{
 		Dissovle: true,
 	}
 	t.broadcast(ack)
-	t.dissovle = nil
 	t.gameOver()
 }
 
@@ -284,7 +284,7 @@ func (t *Table) isOnTable(playerID string) bool {
 }
 
 func (t *Table) checkBegin() {
-	if len(t.players) <= int(t.playerCount) {
+	if len(t.players) < int(t.playerCount) {
 		return
 	}
 
@@ -336,6 +336,10 @@ func (t *Table) HandleAddPlayer(ctx context.Context, msg proto.Message) (proto.M
 }
 
 func (t *Table) HandleCancelTable(ctx context.Context, msg proto.Message) (proto.Message, error) {
+	ack := &cproto.GameDissolveResultAck{
+		Dissovle: true,
+	}
+	t.broadcast(ack)
 	t.gameOver()
 	return &sproto.EmptyAck{}, nil
 }
@@ -352,6 +356,10 @@ func (t *Table) HandleExitTable(ctx context.Context, msg proto.Message) (proto.M
 
 	delete(t.players, req.Playerid)
 	playerManager.Delete(req.Playerid) // 从玩家管理器中删除玩家
+	ack := &cproto.GameExitAck{
+		Uid: req.Playerid,
+	}
+	t.broadcast(ack)
 	return &sproto.EmptyAck{}, nil
 }
 
@@ -378,7 +386,7 @@ func (t *Table) HandleNetState(ctx context.Context, msg proto.Message) (proto.Me
 	return &sproto.NetStateAck{Uid: req.Uid}, nil
 }
 
-func (t *Table) NotifyGameOver(gameId int32) {
+func (t *Table) NotifyGameOver(gameId int32, roundData string) {
 	if gameId != t.curGameCount {
 		return
 	}
@@ -386,14 +394,14 @@ func (t *Table) NotifyGameOver(gameId int32) {
 	t.gameOnce.Do(func() {
 		result := &sproto.GameResultReq{
 			CurGameCount: t.curGameCount,
-			Players:      make([]*sproto.PlayerResult, 0),
+			Scores:       make(map[string]int64),
+			PlayerData:   make(map[string]string),
+			RoundData:    roundData,
 		}
 
 		for _, p := range t.players {
-			result.Players = append(result.Players, &sproto.PlayerResult{
-				Playerid: p.ack.Uid,
-				Score:    p.score,
-			})
+			result.Scores[p.ack.Uid] = p.score
+			result.PlayerData[p.ack.Uid] = p.ack.Nickname
 		}
 		t.Send2Match(result)
 		t.sendGameOver()

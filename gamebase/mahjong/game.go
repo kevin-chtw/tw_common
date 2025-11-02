@@ -18,6 +18,7 @@ type Game struct {
 	nextState IState
 	rule      *Rule
 	players   []*Player
+	roundData string
 }
 
 func NewGame(subGame IGame, t *game.Table, id int32) *Game {
@@ -62,7 +63,7 @@ func (g *Game) OnGameOver() {
 	for i := int32(0); i < g.GetPlayerCount(); i++ {
 		g.GetPlayer(i).SyncGameResult()
 	}
-	g.NotifyGameOver(g.id)
+	g.NotifyGameOver(g.id, g.roundData)
 }
 
 func (g *Game) OnNetChange(player *game.Player, offline bool) {
@@ -104,4 +105,8 @@ func (g *Game) enterNextState() {
 		g.timer.Cancel()
 		g.CurState.OnEnter()
 	}
+}
+
+func (g *Game) SetRoundData(roundData string) {
+	g.roundData = roundData
 }

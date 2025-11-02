@@ -2,6 +2,7 @@ package mahjong
 
 import (
 	"github.com/kevin-chtw/tw_common/gamebase/game"
+	"github.com/kevin-chtw/tw_common/utils"
 	"github.com/kevin-chtw/tw_proto/game/pbmj"
 	"google.golang.org/protobuf/proto"
 )
@@ -241,5 +242,6 @@ func (s *Sender) SendResult(liuju bool) {
 			Tiles:    s.play.GetPlayData(int32(i)).GetHandTilesInt32(),
 		}
 	}
+	s.game.SetRoundData(utils.JsonMarshal.Format(resultAck))
 	s.SendMsg(resultAck, game.SeatAll)
 }

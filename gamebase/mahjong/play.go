@@ -144,6 +144,7 @@ func (p *Play) Ting(tile Tile) bool {
 		p.addHistory(p.curSeat, OperateTing, p.curTile, 0)
 		p.freshTingMuti(p.curSeat)
 		p.curTile = tile
+		p.game.GetGamePlayer(p.curSeat).AddData("ting", 1)
 		return true
 	}
 	return false
@@ -177,6 +178,7 @@ func (p *Play) ZhiKon(seat int32) {
 	playData.kon(p.curTile, p.curSeat, KonTypeZhi)
 	p.playData[p.curSeat].RemoveOutTile()
 	p.addHistory(seat, OperateKon, p.curTile, 0)
+	p.game.GetGamePlayer(seat).AddData("kon", 1)
 	p.FreshCallData(seat)
 }
 
@@ -188,6 +190,7 @@ func (p *Play) TryKon(tile Tile, konType KonType) bool {
 
 	playData.kon(tile, p.curSeat, konType)
 	p.addHistory(p.curSeat, OperateKon, p.curTile, 0)
+	p.game.GetGamePlayer(p.curSeat).AddData("kon", 1)
 	p.FreshCallData(p.curSeat)
 	p.curTile = tile
 	return true
@@ -202,6 +205,7 @@ func (p *Play) Pon(seat int32) {
 	playData.Pon(p.curTile, p.curSeat)
 	p.playData[p.curSeat].RemoveOutTile()
 	p.addHistory(seat, OperatePon, p.curTile, 0)
+	p.game.GetGamePlayer(seat).AddData("pon", 1)
 	p.FreshCallData(seat)
 }
 
@@ -223,6 +227,7 @@ func (p *Play) PonTing(seat int32, disTile Tile) {
 	if playData.Discard(disTile) {
 		playData.Pon(p.curTile, p.curSeat)
 		p.addHistory(seat, OperatePonTing, p.curTile, disTile)
+		p.game.GetGamePlayer(seat).AddData("ponting", 1)
 		p.freshTingMuti(seat)
 		p.curTile = disTile
 	}
@@ -238,6 +243,7 @@ func (p *Play) Chow(seat int32, leftTile Tile) {
 	playData.chow(tiles, p.curTile, leftTile, seat)
 	p.playData[p.curSeat].RemoveOutTile()
 	p.addHistory(seat, OperateChow, p.curTile, leftTile)
+	p.game.GetGamePlayer(seat).AddData("chow", 1)
 	p.FreshCallData(seat)
 }
 
@@ -261,6 +267,7 @@ func (p *Play) ChowTing(seat int32, leftTile, disTile Tile) {
 	if playData.Discard(disTile) {
 		playData.chow(tiles, p.curTile, leftTile, seat)
 		p.addHistory(seat, OperatePonTing, p.curTile, disTile)
+		p.game.GetGamePlayer(seat).AddData("chowting", 1)
 		p.freshTingMuti(seat)
 		p.curTile = disTile
 	}
@@ -280,6 +287,7 @@ func (p *Play) Zimo() (multiples []int64) {
 
 	p.huSeats = append(p.huSeats, p.curSeat)
 	p.addHistory(p.curSeat, OperateHu, p.curTile, 0)
+	p.game.GetGamePlayer(p.curSeat).AddData("hu", 1)
 	return
 }
 
@@ -293,9 +301,11 @@ func (p *Play) PaoHu(huSeats []int32) []int64 {
 		if !p.game.GetPlayer(seat).IsOut() {
 			multiples[seat] = +multi
 			p.addHistory(p.curSeat, OperateHu, p.curTile, 0)
+			p.game.GetGamePlayer(seat).AddData("hu", 1)
 		}
 	}
 	p.huSeats = append(p.huSeats, huSeats...)
+	p.game.GetGamePlayer(p.curSeat).AddData("dianpao", 1)
 	return multiples
 }
 
@@ -364,13 +374,15 @@ func (p *Play) AddHuOperate(opt *Operates, seat int32, result *pbmj.MJHuData, mu
 func (p *Play) getLastGameData() *LastGameData {
 	lastGameData := p.game.GetLastGameData()
 	if lastGameData == nil {
-		return NewLastGameData(int(p.game.GetPlayerCount()))
+		data := NewLastGameData(int(p.game.GetPlayerCount()))
+		p.game.SetLastGameData(data)
+		return data
 	}
 
 	lgd, ok := lastGameData.(*LastGameData)
 	if !ok {
 		logrus.Errorf("invalid last game data type: %T", lastGameData)
-		return NewLastGameData(int(p.game.GetPlayerCount()))
+		return nil
 	}
 	return lgd
 }
