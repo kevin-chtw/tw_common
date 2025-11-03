@@ -29,7 +29,7 @@ func (c *CheckerPao) Check(seat int32, opt *Operates) {
 	} else if result.Multi < c.play.PlayConf.MinMultipleLimit {
 		opt.Tips = append(opt.Tips, TipsQiHuFan)
 	} else {
-		c.play.AddHuOperate(opt, seat, result, true)
+		c.play.AddHuOperate(opt, seat, result, false)
 	}
 }
 

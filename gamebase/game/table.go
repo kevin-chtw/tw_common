@@ -159,6 +159,7 @@ func (t *Table) handleGameDissolve(player *Player, msg proto.Message) error {
 		t.dissovle = &cproto.GameDissolveAck{
 			Starttime: time.Now().Unix(),
 			Endtime:   time.Now().Add(5 * time.Minute).Unix(),
+			Seat:      player.GetSeat(),
 			Agreed:    make(map[int32]bool),
 		}
 	}
