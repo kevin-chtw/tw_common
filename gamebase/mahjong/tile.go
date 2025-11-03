@@ -108,6 +108,15 @@ func TilesName(tiles []Tile) string {
 	return strings.Join(tileNames, ", ")
 }
 
+func GetColorTile(tiles []Tile, color EColor) Tile {
+	for _, t := range tiles {
+		if t.Color() == color {
+			return t
+		}
+	}
+	return TileNull
+}
+
 func TilesInt32(tiles []Tile) []int32 {
 	res := make([]int32, len(tiles))
 	for i, t := range tiles {

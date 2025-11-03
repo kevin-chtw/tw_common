@@ -59,13 +59,13 @@ func (s *ScorelatorMany) CalcKon(sr ScoreReason, win, loss int32, lossMulti, oth
 	multi := make([]int64, s.game.GetPlayerCount())
 	for i := range s.game.GetPlayerCount() {
 		if i == loss {
-			multi[i] = lossMulti
-			multi[win] -= lossMulti
+			multi[i] -= lossMulti
+			multi[win] += lossMulti
 			continue
 		}
 		if !s.game.GetPlayer(i).isOut {
-			multi[i] = otherMulti
-			multi[win] -= otherMulti
+			multi[i] -= otherMulti
+			multi[win] += otherMulti
 		}
 	}
 	return s.CalcMulti(win, sr, multi)

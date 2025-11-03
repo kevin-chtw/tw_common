@@ -163,9 +163,16 @@ func (t *Table) handleGameDissolve(player *Player, msg proto.Message) error {
 		}
 	}
 	t.dissovle.Agreed[player.ack.Seat] = req.Agree
-	//t.dissolveMutex.Unlock()
 	t.broadcast(t.dissovle)
-	t.checkDissolve()
+	if req.Agree {
+		t.checkDissolve()
+	} else {
+		ack := &cproto.GameDissolveResultAck{
+			Dissovle: false,
+		}
+		t.broadcast(ack)
+		t.dissovle = nil
+	}
 	return nil
 }
 
@@ -180,6 +187,9 @@ func (t *Table) checkDissolve() {
 	}
 	t.dissovle = nil
 	//t.dissolveMutex.Unlock()
+	for _, p := range t.players {
+		p.ack.Ready = false
+	}
 
 	ack := &cproto.GameDissolveResultAck{
 		Dissovle: true,
