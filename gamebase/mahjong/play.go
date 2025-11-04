@@ -193,7 +193,7 @@ func (p *Play) TryKon(tile Tile, konType KonType) bool {
 	}
 
 	playData.kon(tile, p.curSeat, konType)
-	p.addHistory(p.curSeat, OperateKon, p.curTile, 0)
+	p.addHistory(p.curSeat, OperateKon, tile, 0)
 	p.game.GetGamePlayer(p.curSeat).AddData("kon", 1)
 	p.FreshCallData(p.curSeat)
 	p.curTile = tile
