@@ -131,12 +131,12 @@ func (c *CheckerChowTing) Check(seat int32, opt *Operates) {
 		if len(tiles) == 2 {
 			callData := huData.CheckCall()
 			if len(callData) > 0 {
-				opt.ChowLPoints = append(opt.ChowLPoints, int32(p))
+				opt.Tings[int32(p)] = callData
 			}
 		}
 		huData.Tiles = append(huData.Tiles, tiles...)
 	}
-	if len(opt.ChowLPoints) > 0 {
+	if len(opt.Tings) > 0 {
 		opt.AddOperate(OperateChowTing)
 	}
 }
@@ -161,5 +161,6 @@ func (c *CheckerPonTing) Check(seat int32, opt *Operates) {
 	callData := huData.CheckCall()
 	if len(callData) > 0 {
 		opt.AddOperate(OperatePonTing)
+		opt.Tings[c.play.curTile.ToInt32()] = callData
 	}
 }

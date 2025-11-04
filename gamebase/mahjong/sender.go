@@ -105,8 +105,14 @@ func (s *Sender) SendRequestAck(seat int32, operates *Operates) {
 		RequestType: int32(operates.Value),
 		Requestid:   s.GetRequestID(seat),
 		HuMulti:     operates.HuMulti,
-		ChowLpoints: operates.ChowLPoints,
+		Tings:       make(map[int32]*pbmj.CallDatas),
 	}
+	for k, v := range operates.Tings {
+		requestAck.Tings[k] = &pbmj.CallDatas{
+			CallData: ToCallData(v),
+		}
+	}
+
 	s.SendMsg(requestAck, seat)
 }
 
