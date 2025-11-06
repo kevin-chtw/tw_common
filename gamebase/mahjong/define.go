@@ -106,10 +106,10 @@ type KonType int
 
 const (
 	KonTypeNone KonType = -1 + iota
-	KonTypeZhi
-	KonTypeAn
-	KonTypeBu
-	KonTypeBuDelay
+	KonTypeZhi          //直杠
+	KonTypeAn           //暗杠
+	KonTypeBu           //补杠
+	KonTypeBa           //巴杠，不算分
 )
 
 type EGroupType int

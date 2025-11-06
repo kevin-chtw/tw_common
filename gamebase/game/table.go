@@ -30,20 +30,20 @@ type IGame interface {
 
 // Table 表示一个游戏桌实例
 type Table struct {
-	MatchType     string             //
-	matchID       int32              // 比赛ID
+	MatchType     string //
+	MatchID       int32  // 比赛ID
+	App           pitaya.Pitaya
 	tableID       int32              // 桌号
 	matchServerId string             // 匹配服务ID
 	players       map[string]*Player // 玩家ID -> Player
-	app           pitaya.Pitaya
-	scoreBase     int64            // 分数基数
-	gameCount     int32            // 游戏局数
-	curGameCount  int32            // 当前局数
-	playerCount   int32            // 玩家数量
-	property      string           // 游戏配置
-	creator       string           // 创建者ID
-	description   string           // 房间描述
-	fdproperty    map[string]int32 // 房间属性
+	scoreBase     int64              // 分数基数
+	gameCount     int32              // 游戏局数
+	curGameCount  int32              // 当前局数
+	playerCount   int32              // 玩家数量
+	property      string             // 游戏配置
+	creator       string             // 创建者ID
+	description   string             // 房间描述
+	fdproperty    map[string]int32   // 房间属性
 	lastHandData  any
 	handlers      map[string]func(*Player, proto.Message) error
 	gameMutex     sync.Mutex // 保护game的对象锁
@@ -61,13 +61,13 @@ type Table struct {
 // NewTable 创建新的游戏桌实例
 func NewTable(matchID, tableID int32, app pitaya.Pitaya) *Table {
 	t := &Table{
-		matchID:        matchID,
+		MatchID:        matchID,
 		tableID:        tableID,
 		curGameCount:   0,
 		matchServerId:  "",
 		players:        make(map[string]*Player),
 		fdproperty:     make(map[string]int32),
-		app:            app,
+		App:            app,
 		handlers:       make(map[string]func(*Player, proto.Message) error),
 		gameMutex:      sync.Mutex{},
 		game:           nil,
@@ -207,7 +207,7 @@ func (t *Table) gameBegin() {
 	t.gameOnce = sync.Once{}
 	t.sendGameBegin()
 	t.historyMsg = make(map[string][]*cproto.GameAck)
-	t.game = CreateGame(t.app.GetServer().Type, t, t.curGameCount)
+	t.game = CreateGame(t.App.GetServer().Type, t, t.curGameCount)
 	t.game.OnGameBegin()
 }
 
@@ -280,9 +280,9 @@ func (t *Table) newMsg(ack proto.Message) *cproto.GameAck {
 		return nil
 	}
 	return &cproto.GameAck{
-		Serverid: t.app.GetServerID(),
+		Serverid: t.App.GetServerID(),
 		Tableid:  t.tableID,
-		Matchid:  t.matchID,
+		Matchid:  t.MatchID,
 		Ack:      data,
 	}
 }
@@ -435,7 +435,7 @@ func (t *Table) gameOver() {
 	for _, player := range t.players {
 		playerManager.Delete(player.ack.Uid) // 从玩家管理器中删除玩家
 	}
-	tableManager.Delete(t.matchID, t.tableID) // 从桌子管理器中删除
+	tableManager.Delete(t.MatchID, t.tableID) // 从桌子管理器中删除
 
 	// 清理game对象
 	t.gameMutex.Lock()
@@ -453,7 +453,7 @@ func (t *Table) send2Account(msg proto.Message) (proto.Message, error) {
 		Req: data,
 	}
 	ack := &sproto.AccountAck{}
-	if err := t.app.RPC(context.Background(), "account.remote.message", ack, req); err != nil {
+	if err := t.App.RPC(context.Background(), "account.remote.message", ack, req); err != nil {
 		return nil, err
 	}
 	return ack, nil
@@ -467,11 +467,11 @@ func (t *Table) Send2Match(msg proto.Message) {
 		return
 	}
 	req := &sproto.MatchReq{
-		Matchid: t.matchID,
+		Matchid: t.MatchID,
 		Req:     data,
 	}
 	ack := &sproto.MatchAck{}
-	if err := t.app.RPCTo(context.Background(), t.matchServerId, t.MatchType+".remote.message", ack, req); err != nil {
+	if err := t.App.RPCTo(context.Background(), t.matchServerId, t.MatchType+".remote.message", ack, req); err != nil {
 		logger.Log.Error(err.Error())
 	}
 }
@@ -584,7 +584,7 @@ func (t *Table) sendMsg(msg *cproto.GameAck, player *Player) {
 		return
 	}
 
-	if _, err := t.app.SendPushToUsers(t.app.GetServer().Type, data, []string{player.ack.Uid}, "proxy"); err != nil {
+	if _, err := t.App.SendPushToUsers(t.App.GetServer().Type, data, []string{player.ack.Uid}, "proxy"); err != nil {
 		logger.Log.Errorf("player %v failed: %v", player.ack.Uid, err)
 	}
 }

@@ -144,7 +144,7 @@ func (p *Play) Ting(tile Tile) bool {
 		return false
 	}
 	if playData.Discard(tile) {
-		playData.ting = true
+		playData.SetTing(false)
 		p.addHistory(p.curSeat, OperateTing, p.curTile, 0)
 		p.freshTingMuti(p.curSeat)
 		p.curTile = tile
@@ -213,30 +213,6 @@ func (p *Play) Pon(seat int32) {
 	p.FreshCallData(seat)
 }
 
-func (p *Play) PonTing(seat int32, disTile Tile) {
-	playData := p.playData[seat]
-	if !playData.canPon(p.curTile, p.PlayConf.CanotOnlyLaiAfterPon) {
-		logrus.Error("player cannot pon")
-		return
-	}
-
-	huData := NewHuData(playData, false)
-	huData.Tiles = RemoveElements(huData.Tiles, p.curTile, 2)
-	callData := huData.CheckCall()
-	if _, ok := callData[disTile]; !ok {
-		logrus.Error("player cannot ting")
-		return
-	}
-
-	if playData.Discard(disTile) {
-		playData.Pon(p.curTile, p.curSeat)
-		p.addHistory(seat, OperatePonTing, p.curTile, disTile)
-		p.game.GetGamePlayer(seat).AddData("ponting", 1)
-		p.freshTingMuti(seat)
-		p.curTile = disTile
-	}
-}
-
 func (p *Play) Chow(seat int32, leftTile Tile) {
 	playData := p.playData[seat]
 	tiles, ok := playData.tryChow(p.curTile, leftTile)
@@ -249,32 +225,6 @@ func (p *Play) Chow(seat int32, leftTile Tile) {
 	p.addHistory(seat, OperateChow, p.curTile, leftTile)
 	p.game.GetGamePlayer(seat).AddData("chow", 1)
 	p.FreshCallData(seat)
-}
-
-func (p *Play) ChowTing(seat int32, leftTile, disTile Tile) {
-	playData := p.playData[seat]
-	tiles, ok := playData.tryChow(p.curTile, leftTile)
-	if !ok {
-		logrus.Error("player cannot chow")
-	}
-
-	huData := NewHuData(playData, false)
-	for _, tile := range tiles {
-		huData.Tiles = RemoveElements(huData.Tiles, tile, 1)
-	}
-	callData := huData.CheckCall()
-	if _, ok := callData[disTile]; !ok {
-		logrus.Error("player cannot ting")
-		return
-	}
-
-	if playData.Discard(disTile) {
-		playData.chow(tiles, p.curTile, leftTile, seat)
-		p.addHistory(seat, OperatePonTing, p.curTile, disTile)
-		p.game.GetGamePlayer(seat).AddData("chowting", 1)
-		p.freshTingMuti(seat)
-		p.curTile = disTile
-	}
 }
 
 func (p *Play) Zimo() (multiples []int64) {
@@ -316,6 +266,7 @@ func (p *Play) PaoHu(huSeats []int32) []int64 {
 func (p *Play) Draw() Tile {
 	tile := p.dealer.DrawTile()
 	if tile != TileNull {
+		p.curTile = tile
 		p.playData[p.curSeat].PutHandTile(tile)
 		p.addHistory(p.curSeat, OperateDraw, tile, 0)
 		p.FreshCallData(p.curSeat)

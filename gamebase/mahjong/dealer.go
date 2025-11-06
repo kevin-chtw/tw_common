@@ -3,11 +3,14 @@ package mahjong
 import (
 	"math/rand"
 	"slices"
+
+	"github.com/topfreegames/pitaya/v3/pkg/logger"
 )
 
 // Dealer 麻将发牌器接口
 type Dealer struct {
 	game     *Game
+	manual   *Manual
 	tileWall []Tile
 }
 
@@ -15,6 +18,7 @@ type Dealer struct {
 func NewDealer(game *Game) *Dealer {
 	return &Dealer{
 		game:     game,
+		manual:   newManual(game.App.GetServer().Type, game.MatchID),
 		tileWall: make([]Tile, 0),
 	}
 }
@@ -26,6 +30,15 @@ func (d *Dealer) GetGame() *Game {
 
 func (d *Dealer) Initialize() {
 	tiles := Service.GetAllTiles(d.game.GetRule())
+	if d.manual.enabled() {
+		if tileWall, err := d.manual.load(tiles, int(d.game.GetPlayerCount()), Service.GetHandCount()-1); err != nil {
+			logger.Log.Error(err)
+		} else {
+			d.tileWall = tileWall
+			return
+		}
+	}
+
 	// 预计算总牌数并一次性分配
 	total := 0
 	for _, count := range tiles {
@@ -58,8 +71,7 @@ func (d *Dealer) DrawTile() Tile {
 	return tile
 }
 func (d *Dealer) Deal(count int) []Tile {
-	tiles := make([]Tile, count)
-	copy(tiles, d.tileWall[:count])
+	tiles := slices.Clone(d.tileWall[:count])
 	d.tileWall = d.tileWall[count:]
 	return tiles
 }

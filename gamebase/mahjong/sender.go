@@ -133,23 +133,25 @@ func (s *Sender) SendTingAck(seat int32, tile Tile) {
 	s.SendMsg(tingAck, game.SeatAll)
 }
 
-func (s *Sender) SendChowAck(seat int32, tile, leftTile Tile) {
+func (s *Sender) SendChowAck(seat int32, tile, leftTile Tile, ting bool) {
 	chowAck := &pbmj.MJChowAck{
 		Seat:     seat,
 		From:     s.play.GetCurSeat(),
 		Tile:     tile.ToInt32(),
 		LeftTile: leftTile.ToInt32(),
 		CallData: ToCallData(s.play.GetPlayData(seat).GetCallMap()),
+		ChowTing: ting,
 	}
 	s.SendMsg(chowAck, game.SeatAll)
 }
 
-func (s *Sender) SendPonAck(seat int32, tile Tile) {
+func (s *Sender) SendPonAck(seat int32, tile Tile, ting bool) {
 	ponAck := &pbmj.MJPonAck{
 		Seat:     seat,
 		From:     s.play.GetCurSeat(),
 		Tile:     tile.ToInt32(),
 		CallData: ToCallData(s.play.GetPlayData(seat).GetCallMap()),
+		PonTing:  ting,
 	}
 	s.SendMsg(ponAck, game.SeatAll)
 }

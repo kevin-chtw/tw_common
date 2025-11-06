@@ -414,7 +414,7 @@ func Check7dui(tiles []Tile, countLaiZi int) HuCoreType {
 			countLaiZi--
 		}
 	}
-	if countLaiZi <= 0 {
+	if countLaiZi < 0 {
 		return HU_NON
 	}
 	return HU_7DUI

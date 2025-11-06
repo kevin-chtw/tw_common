@@ -111,7 +111,7 @@ func (p *PlayData) Discard(tile Tile) bool {
 	return true
 }
 
-func (p *PlayData) SetTing(tile int, tianTing bool) {
+func (p *PlayData) SetTing(tianTing bool) {
 	p.ting = true
 	p.tianTing = tianTing
 }

@@ -60,7 +60,7 @@ func NewCheckerTing(play *Play) CheckerSelf {
 	return &checkerTing{play: play}
 }
 func (c *checkerTing) Check(opt *Operates) {
-	if opt.IsMustHu {
+	if opt.IsMustHu || c.play.playData[c.play.curSeat].ting {
 		return
 	}
 

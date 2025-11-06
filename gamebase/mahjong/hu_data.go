@@ -11,7 +11,8 @@ type HuData struct {
 	HuCoreType   HuCoreType
 	Tiles        []Tile
 	ExtraHuTypes []int32 // 额外胡类型
-	curTile      Tile
+	CurTile      Tile
+	Self         bool
 }
 
 func NewHuData(playData *PlayData, self bool) *HuData {
@@ -19,20 +20,17 @@ func NewHuData(playData *PlayData, self bool) *HuData {
 		PlayData:     playData,
 		HuCoreType:   HU_NON,
 		Tiles:        slices.Clone(playData.handTiles),
-		curTile:      playData.Play.curTile,
+		CurTile:      playData.Play.curTile,
 		ExtraHuTypes: playData.Play.PlayImp.GetExtraHuTypes(playData, self),
+		Self:         self,
 	}
 
 	return data
 }
 
-func (h *HuData) GetCurTile() Tile {
-	return h.curTile
-}
-
 func (h *HuData) CheckHu() (*pbmj.MJHuData, bool) {
 	if len(h.Tiles)%3 != 2 {
-		h.Tiles = append(h.Tiles, h.curTile)
+		h.Tiles = append(h.Tiles, h.CurTile)
 	}
 
 	h.HuCoreType = h.Play.PlayImp.CheckHu(h)
@@ -92,7 +90,7 @@ func (h *HuData) checkCalls() map[Tile]int64 {
 	testTiles := Service.GetAllTiles(h.Play.GetRule())
 	originalTiles := slices.Clone(h.Tiles)
 	for tile := range testTiles {
-		h.curTile = tile
+		h.CurTile = tile
 		h.Tiles = append(h.Tiles, tile)
 		if result, ok := h.CheckHu(); ok {
 			mutils[tile] = result.Multi
