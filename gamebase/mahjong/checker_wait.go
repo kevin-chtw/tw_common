@@ -104,37 +104,31 @@ func NewCheckerChowTing(play *Play) CheckerWait {
 	return &CheckerChowTing{play: play}
 }
 func (c *CheckerChowTing) Check(seat int32, opt *Operates) {
-	if opt.IsMustHu {
-		return
-	}
-	playData := c.play.playData[seat]
-	if playData.ting {
+	if opt.IsMustHu || c.play.playData[seat].ting {
 		return
 	}
 
-	if !playData.canChow(c.play.curTile) {
+	if !c.play.playData[seat].canChow(c.play.curTile) {
 		return
 	}
 
-	huData := NewHuData(playData, false)
-	leftPoint := max(0, c.play.curTile.Point()-2)
+	huData := NewHuData(c.play.playData[seat], false)
+	curPoint := c.play.curTile.Point()
 	color := c.play.curTile.Color()
-	for p := leftPoint; p < leftPoint+3; p++ {
-		tiles := make([]Tile, 0)
+
+	for point := max(0, curPoint-2); point <= curPoint && point+2 <= 8; point++ {
+		handTiles := slices.Clone(c.play.playData[seat].handTiles)
 		for i := range 3 {
-			tile := MakeTile(color, p+i)
-			if tile != c.play.curTile && slices.Contains(playData.handTiles, tile) {
-				huData.Tiles = RemoveElements(huData.Tiles, tile, 1)
-				tiles = append(tiles, tile)
+			tile := MakeTile(color, point+i)
+			if tile != c.play.curTile && slices.Contains(handTiles, tile) {
+				RemoveElements(handTiles, tile, 1)
 			}
 		}
-		if len(tiles) == 2 {
-			callData := huData.CheckCall()
-			if len(callData) > 0 {
-				opt.Tings[int32(p)] = callData
+		if len(handTiles)+2 == len(c.play.playData[seat].handTiles) {
+			if callData := huData.CheckCall(); len(callData) > 0 {
+				opt.Tings[int32(point)] = callData
 			}
 		}
-		huData.Tiles = append(huData.Tiles, tiles...)
 	}
 	if len(opt.Tings) > 0 {
 		opt.AddOperate(OperateChowTing)

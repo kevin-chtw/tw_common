@@ -16,7 +16,7 @@ type Player struct {
 }
 
 // NewPlayer 创建新玩家实例
-func NewPlayer(sub any, ctx context.Context, id string, matchId, tableId int32, score int64) *Player {
+func NewPlayer(sub any, ctx context.Context, id string, matchId int32, score int64) *Player {
 	p := &Player{
 		Sub:     sub,
 		Ctx:     ctx,
@@ -24,7 +24,7 @@ func NewPlayer(sub any, ctx context.Context, id string, matchId, tableId int32, 
 		Online:  true,
 		Exit:    false,
 		MatchId: matchId,
-		TableId: tableId,
+		TableId: 0,
 		Score:   score,
 		Seat:    -1,
 	}

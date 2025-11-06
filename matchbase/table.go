@@ -20,8 +20,9 @@ type Table struct {
 
 func NewTable(m *Match) *Table {
 	return &Table{
-		Match: m,
-		ID:    m.nextTableID(),
+		Match:   m,
+		ID:      m.nextTableID(),
+		Players: make(map[string]*Player),
 	}
 }
 
@@ -43,6 +44,7 @@ func (t *Table) AddPlayer(player *Player) error {
 		return err
 	}
 	player.Seat = t.getSeat()
+	player.TableId = t.ID
 	t.Players[player.ID] = player
 	t.SendAddPlayer(player)
 	return nil
