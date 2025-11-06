@@ -26,6 +26,11 @@ func NewTableManager(app pitaya.Pitaya) *TableManager {
 		ticker: time.NewTicker(time.Second),
 	}
 	go func() {
+		defer func() {
+			if r := recover(); r != nil {
+				logger.Log.Errorf("panic recovered %s\n %s", r, string(debug.Stack()))
+			}
+		}()
 		for range t.ticker.C {
 			t.tick()
 		}
@@ -35,11 +40,6 @@ func NewTableManager(app pitaya.Pitaya) *TableManager {
 }
 
 func (t *TableManager) tick() {
-	defer func() {
-		if r := recover(); r != nil {
-			logger.Log.Errorf("panic recovered %s\n %s", r, string(debug.Stack()))
-		}
-	}()
 	t.mu.RLock()
 	tables := make([]*Table, 0, len(t.tables))
 	for _, table := range t.tables {

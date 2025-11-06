@@ -1,5 +1,7 @@
 package mahjong
 
+import "maps"
+
 func TilesToMap(cards []Tile) map[Tile]int {
 	tileMap := make(map[Tile]int)
 	for _, tile := range cards {
@@ -69,9 +71,7 @@ func _CheckAnyHu(cards map[Tile]int, countLaiZi int) bool {
 	// 首先尝试找将牌
 	for tile, count := range cards {
 		tempMap := make(map[Tile]int)
-		for k, v := range cards {
-			tempMap[k] = v
-		}
+		maps.Copy(tempMap, cards)
 
 		needLaiZi := 0
 		if count >= 2 {
