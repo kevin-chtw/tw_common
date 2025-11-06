@@ -2,7 +2,9 @@ package matchbase
 
 import (
 	"context"
+	"errors"
 
+	"github.com/kevin-chtw/tw_common/storage"
 	"github.com/kevin-chtw/tw_proto/cproto"
 	"github.com/kevin-chtw/tw_proto/sproto"
 	"github.com/topfreegames/pitaya/v3/pkg/logger"
@@ -11,8 +13,9 @@ import (
 )
 
 type Table struct {
-	Match *Match
-	ID    int32
+	Match   *Match
+	ID      int32
+	Players map[string]*Player
 }
 
 func NewTable(m *Match) *Table {
@@ -22,10 +25,33 @@ func NewTable(m *Match) *Table {
 	}
 }
 
-func (t *Table) SendAddTableReq(scorebase int64, gameCount int32, property string, fdproperty map[string]int32) {
+func (t *Table) AddPlayer(player *Player) error {
+	if len(t.Players) >= int(t.Match.Conf.PlayerPerTable) {
+		return errors.New("table is full")
+	}
+
+	if t.isOnTable(player) {
+		return errors.New("player already exists on table")
+	}
+
+	module, err := t.Match.App.GetModule("matchingstorage")
+	if err != nil {
+		return err
+	}
+	ms := module.(*storage.ETCDMatching)
+	if err = ms.Put(player.ID, t.Match.Conf.Matchid); err != nil {
+		return err
+	}
+	player.Seat = t.getSeat()
+	t.Players[player.ID] = player
+	t.SendAddPlayer(player)
+	return nil
+}
+
+func (t *Table) SendAddTableReq(gameCount int32, fdproperty map[string]int32) {
 	req := &sproto.AddTableReq{
-		Property:    property,
-		ScoreBase:   scorebase,
+		Property:    t.Match.Conf.Property,
+		ScoreBase:   t.Match.Conf.ScoreBase,
 		MatchType:   t.Match.App.GetServer().Type,
 		GameCount:   gameCount,
 		PlayerCount: t.Match.Conf.PlayerPerTable,
@@ -34,10 +60,10 @@ func (t *Table) SendAddTableReq(scorebase int64, gameCount int32, property strin
 	t.send2Game(req)
 }
 
-func (t *Table) SendAddPlayer(player *Player, seat int32) {
+func (t *Table) SendAddPlayer(player *Player) {
 	req := &sproto.AddPlayerReq{
 		Playerid: player.ID,
-		Seat:     seat,
+		Seat:     player.Seat,
 		Score:    player.Score,
 	}
 	t.send2Game(req)
@@ -100,4 +126,31 @@ func (t *Table) send2Game(msg proto.Message) *sproto.GameAck {
 		logger.Log.Errorf("Failed to send message: %v", err)
 	}
 	return rsp
+}
+
+func (t *Table) getSeat() int32 {
+	for i := range t.Match.Conf.PlayerPerTable {
+		if !t.isUsed(int32(i)) {
+			return int32(i)
+		}
+	}
+	return -1
+}
+
+func (t *Table) isUsed(seat int32) bool {
+	for _, p := range t.Players {
+		if p.Seat == seat {
+			return true
+		}
+	}
+	return false
+}
+
+func (t *Table) isOnTable(player *Player) bool {
+	for _, p := range t.Players {
+		if p.ID == player.ID {
+			return true
+		}
+	}
+	return false
 }

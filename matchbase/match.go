@@ -54,3 +54,13 @@ func (m *Match) nextTableID() int32 {
 func (m *Match) PutBackTableId(id int32) {
 	m.tableIds.PutBack(id)
 }
+
+func (m *Match) NewStartClientAck(p *Player) *cproto.StartClientAck {
+	return &cproto.StartClientAck{
+		MatchType: m.App.GetServer().Type,
+		GameType:  m.Conf.GameType,
+		ServerId:  m.App.GetServerID(),
+		MatchId:   m.Conf.Matchid,
+		TableId:   p.TableId,
+	}
+}
