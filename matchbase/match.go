@@ -64,3 +64,13 @@ func (m *Match) NewStartClientAck(p *Player) *cproto.StartClientAck {
 		TableId:   p.TableId,
 	}
 }
+
+func (m *Match) PushMsg(p *Player, msg proto.Message) error {
+	data, err := m.NewMatchAck(p.Ctx, msg)
+	if err != nil {
+		logger.Log.Errorf("Failed to send start client ack: %v", err)
+		return err
+	}
+	_, err = m.App.SendPushToUsers(m.App.GetServer().Type, data, []string{p.ID}, "proxy")
+	return err
+}

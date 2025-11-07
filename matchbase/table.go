@@ -26,12 +26,32 @@ func NewTable(m *Match) *Table {
 	}
 }
 
+func (t *Table) IsOnTable(player *Player) bool {
+	for _, p := range t.Players {
+		if p.ID == player.ID {
+			return true
+		}
+	}
+	return false
+}
+
+func (t *Table) NetChange(player *Player, online bool) error {
+	if t.IsOnTable(player) {
+		return errors.New("player is not on table")
+	}
+	t.SendNetState(player, online)
+	if online {
+		t.SendStartClient(player)
+	}
+	return nil
+}
+
 func (t *Table) AddPlayer(player *Player) error {
 	if len(t.Players) >= int(t.Match.Conf.PlayerPerTable) {
 		return errors.New("table is full")
 	}
 
-	if t.isOnTable(player) {
+	if t.IsOnTable(player) {
 		return errors.New("player already exists on table")
 	}
 
@@ -71,7 +91,7 @@ func (t *Table) SendAddPlayer(player *Player) {
 	t.send2Game(req)
 }
 
-func (t *Table) SendExitTableReq(player *Player) *sproto.ExitTableAck {
+func (t *Table) SendExitTableReq(player *Player) error {
 	req := &sproto.ExitTableReq{
 		Playerid: player.ID,
 	}
@@ -84,7 +104,10 @@ func (t *Table) SendExitTableReq(player *Player) *sproto.ExitTableAck {
 		logger.Log.Error(err.Error())
 		return nil
 	}
-	return ack.(*sproto.ExitTableAck)
+	if ack.(*sproto.ExitTableAck).Result != 0 {
+		return errors.New("player cannot exit table")
+	}
+	return nil
 }
 
 func (t *Table) SendStartClient(p *Player) {
@@ -107,6 +130,13 @@ func (t *Table) SendNetState(player *Player, online bool) {
 	req := &sproto.NetStateReq{
 		Uid:    player.ID,
 		Online: online,
+	}
+	t.send2Game(req)
+}
+
+func (t *Table) SendCancelTableReq() {
+	req := &sproto.CancelTableReq{
+		Reason: 1,
 	}
 	t.send2Game(req)
 }
@@ -142,15 +172,6 @@ func (t *Table) getSeat() int32 {
 func (t *Table) isUsed(seat int32) bool {
 	for _, p := range t.Players {
 		if p.Seat == seat {
-			return true
-		}
-	}
-	return false
-}
-
-func (t *Table) isOnTable(player *Player) bool {
-	for _, p := range t.Players {
-		if p.ID == player.ID {
 			return true
 		}
 	}
