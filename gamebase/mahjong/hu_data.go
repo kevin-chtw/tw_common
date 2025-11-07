@@ -81,7 +81,7 @@ func (h *HuData) CheckCall() map[Tile]map[Tile]int64 {
 }
 
 func (h *HuData) CanHu() HuCoreType {
-	tiles, laiCount := h.CountLaiZi()
+	tiles, laiCount := h.CountLaiZi(h.Tiles)
 	return DefaultHuCore.CheckBasicHu(tiles, laiCount)
 }
 
@@ -100,12 +100,12 @@ func (h *HuData) checkCalls() map[Tile]int64 {
 	return mutils
 }
 
-func (h *HuData) CountLaiZi() ([]Tile, int) {
+func (h *HuData) CountLaiZi(tiles []Tile) ([]Tile, int) {
 	if len(h.Play.tilesLai) == 0 {
-		return h.Tiles, 0
+		return tiles, 0
 	}
 	laiCount := 0
-	newTiles := slices.DeleteFunc(h.Tiles, func(t Tile) bool {
+	newTiles := slices.DeleteFunc(tiles, func(t Tile) bool {
 		if _, ok := h.Play.tilesLai[t]; ok {
 			laiCount++
 			return true
@@ -113,4 +113,22 @@ func (h *HuData) CountLaiZi() ([]Tile, int) {
 		return false
 	})
 	return newTiles, laiCount
+}
+
+func (h *HuData) CheckShun(tile Tile, p1, p2 int) bool {
+	requiredTiles := [2]Tile{
+		MakeTile(tile.Color(), p1),
+		MakeTile(tile.Color(), p2),
+	}
+	for _, reqTile := range requiredTiles {
+		if !slices.Contains(h.Tiles, reqTile) {
+			return false
+		}
+	}
+
+	tiles := RemoveElements(h.Tiles, tile, 1)
+	tiles = RemoveElements(tiles, requiredTiles[0], 1)
+	tiles = RemoveElements(tiles, requiredTiles[1], 1)
+	tiles, laiCount := h.CountLaiZi(tiles)
+	return DefaultHuCore.CheckBasicHu(tiles, laiCount) != HU_NON
 }
