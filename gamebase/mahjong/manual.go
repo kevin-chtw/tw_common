@@ -7,48 +7,42 @@ import (
 	"os"
 	"path/filepath"
 
-	"gopkg.in/yaml.v3"
+	"github.com/spf13/viper"
 )
-
-// Config 对应 YAML 根结构
-type configFile struct {
-	Enable bool     `yaml:"enable"`
-	Cards  []string `yaml:"cards"`
-}
 
 // Manual 对应 C++ Manual
 type Manual struct {
-	InitCardFile string
+	vp *viper.Viper
 }
 
 // newManual 构造函数
 func newManual(name string, matchId int32) *Manual {
-	return &Manual{
-		InitCardFile: filepath.Join(".", "initCard", fmt.Sprintf("%s_%d.yaml", name, matchId)),
+	m := &Manual{
+		vp: viper.New(),
 	}
+	m.vp.SetConfigType("yaml")
+	m.vp.SetConfigFile(filepath.Join(".", "initcard", fmt.Sprintf("%s_%d.yaml", name, matchId)))
+	if err := m.vp.ReadInConfig(); err != nil {
+		fmt.Fprintf(os.Stderr, "read config file error: %v\n", err)
+		return nil
+	}
+	return m
 }
 
 func (m *Manual) enabled() bool {
-	var c configFile
-	if err := m.loadFile(&c); err != nil {
+	if m == nil {
 		return false
 	}
-	return c.Enable
+	return m.vp.GetBool("enable")
 }
 
 func (m *Manual) load(tiles map[Tile]int, playerCount, handCount int) ([]Tile, error) {
-	var c configFile
-	if err := m.loadFile(&c); err != nil {
-		return nil, err
-	}
-	// 1. 解析牌组
-	groups := make([][]Tile, playerCount+2)
-	fields := []string{}
-	for i := 0; i < playerCount+2; i++ {
-		groups[i] = namesToTiles(fields[i])
+	cards := m.vp.GetStringSlice("cards")
+	groups := make([][]Tile, len(cards))
+	for i := range cards {
+		groups[i] = namesToTiles(cards[i])
 	}
 
-	// 2. 校验牌池充足
 	tmp := make(map[Tile]int)
 	maps.Copy(tmp, tiles)
 	for _, g := range groups {
@@ -60,7 +54,6 @@ func (m *Manual) load(tiles map[Tile]int, playerCount, handCount int) ([]Tile, e
 		}
 	}
 
-	// 3. 分离花牌与普通剩余牌
 	var rests []Tile
 	for t, count := range tmp {
 		if count > 0 {
@@ -69,8 +62,6 @@ func (m *Manual) load(tiles map[Tile]int, playerCount, handCount int) ([]Tile, e
 	}
 
 	m.shuffle(rests)
-
-	// 4. 补满各家到指定张数
 	var out []Tile
 	for i := range len(groups) {
 		out = append(out, groups[i]...)
@@ -80,18 +71,8 @@ func (m *Manual) load(tiles map[Tile]int, playerCount, handCount int) ([]Tile, e
 			rests = rests[more:]
 		}
 	}
-
-	out = append(out, rests...) // 剩余
+	out = append(out, rests...)
 	return out, nil
-}
-
-func (m *Manual) loadFile(cfg *configFile) error {
-	f, err := os.Open(m.InitCardFile)
-	if err != nil {
-		return err
-	}
-	defer f.Close()
-	return yaml.NewDecoder(f).Decode(cfg)
 }
 
 func (m *Manual) shuffle(s []Tile) {
