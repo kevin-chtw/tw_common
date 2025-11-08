@@ -420,7 +420,7 @@ func (t *Table) NotifyGameOver(gameId int32, roundData string) {
 		t.Send2Match(result)
 		t.sendGameOver()
 		if t.curGameCount >= t.gameCount {
-			t.gameOver()
+			go t.gameOver()
 		} else {
 			go t.checkBegin()
 		}
