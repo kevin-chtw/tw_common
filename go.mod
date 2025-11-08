@@ -8,6 +8,7 @@ require (
 	github.com/kevin-chtw/tw_proto v0.0.0-20250817090421-de16e4c22163
 	github.com/lestrrat-go/file-rotatelogs v2.4.0+incompatible
 	github.com/sirupsen/logrus v1.9.3
+	github.com/spf13/viper v1.15.0
 	github.com/topfreegames/pitaya/v3 v3.0.0-beta.6
 	go.etcd.io/etcd/client/v3 v3.5.11
 	google.golang.org/protobuf v1.36.7
@@ -58,7 +59,6 @@ require (
 	github.com/spf13/cast v1.5.1 // indirect
 	github.com/spf13/jwalterweatherman v1.1.0 // indirect
 	github.com/spf13/pflag v1.0.5 // indirect
-	github.com/spf13/viper v1.15.0 // indirect
 	github.com/subosito/gotenv v1.4.2 // indirect
 	github.com/topfreegames/go-workers v1.2.1 // indirect
 	go.etcd.io/etcd/api/v3 v3.5.11 // indirect

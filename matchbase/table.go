@@ -47,7 +47,7 @@ func (t *Table) NetChange(player *Player, online bool) error {
 }
 
 func (t *Table) AddPlayer(player *Player) error {
-	if len(t.Players) >= int(t.Match.Conf.PlayerPerTable) {
+	if len(t.Players) >= t.Match.Viper.GetInt("player_per_table") {
 		return errors.New("table is full")
 	}
 
@@ -60,7 +60,7 @@ func (t *Table) AddPlayer(player *Player) error {
 		return err
 	}
 	ms := module.(*storage.ETCDMatching)
-	if err = ms.Put(player.ID, t.Match.Conf.Matchid); err != nil {
+	if err = ms.Put(player.ID, t.Match.Viper.GetInt32("matchid")); err != nil {
 		return err
 	}
 	player.Seat = t.getSeat()
@@ -72,11 +72,11 @@ func (t *Table) AddPlayer(player *Player) error {
 
 func (t *Table) SendAddTableReq(gameCount int32, fdproperty map[string]int32) {
 	req := &sproto.AddTableReq{
-		Property:    t.Match.Conf.Property,
-		ScoreBase:   t.Match.Conf.ScoreBase,
+		Property:    t.Match.Viper.GetString("property"),
+		ScoreBase:   t.Match.Viper.GetInt64("score_base"),
 		MatchType:   t.Match.App.GetServer().Type,
 		GameCount:   gameCount,
-		PlayerCount: t.Match.Conf.PlayerPerTable,
+		PlayerCount: t.Match.Viper.GetInt32("player_per_table"),
 		Fdproperty:  fdproperty,
 	}
 	t.send2Game(req)
@@ -113,9 +113,9 @@ func (t *Table) SendExitTableReq(player *Player) error {
 func (t *Table) SendStartClient(p *Player) {
 	startClientAck := &cproto.StartClientAck{
 		MatchType: t.Match.App.GetServer().Type,
-		GameType:  t.Match.Conf.GameType,
+		GameType:  t.Match.Viper.GetString("game_type"),
 		ServerId:  t.Match.App.GetServerID(),
-		MatchId:   t.Match.Conf.Matchid,
+		MatchId:   t.Match.Viper.GetInt32("matchid"),
 		TableId:   t.ID,
 	}
 	data, err := t.Match.NewMatchAck(p.Ctx, startClientAck)
@@ -149,19 +149,19 @@ func (t *Table) send2Game(msg proto.Message) *sproto.GameAck {
 	}
 
 	req := &sproto.GameReq{
-		Matchid: t.Match.Conf.Matchid,
+		Matchid: t.Match.Viper.GetInt32("matchid"),
 		Tableid: t.ID,
 		Req:     data,
 	}
 	rsp := &sproto.GameAck{}
-	if err = t.Match.App.RPC(context.Background(), t.Match.Conf.GameType+".remote.message", rsp, req); err != nil {
+	if err = t.Match.App.RPC(context.Background(), t.Match.Viper.GetString("game_type")+".remote.message", rsp, req); err != nil {
 		logger.Log.Errorf("Failed to send message: %v", err)
 	}
 	return rsp
 }
 
 func (t *Table) getSeat() int32 {
-	for i := range t.Match.Conf.PlayerPerTable {
+	for i := range t.Match.Viper.GetInt("player_per_table") {
 		if !t.isUsed(int32(i)) {
 			return int32(i)
 		}

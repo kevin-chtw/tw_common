@@ -2,6 +2,8 @@ package matchbase
 
 import (
 	"context"
+	"path/filepath"
+	"runtime/debug"
 	"time"
 
 	"github.com/kevin-chtw/tw_proto/sproto"
@@ -11,21 +13,68 @@ import (
 	"google.golang.org/protobuf/types/known/anypb"
 )
 
+type Creator func(app pitaya.Pitaya, file string) *Match
+
+var (
+	creator         Creator
+	defaultMatchmgr *Matchmgr
+)
+
+// Init 初始化游戏模块
+func Init(app pitaya.Pitaya, creator Creator) {
+	defaultMatchmgr = NewMatchmgr(app)
+}
+
+func GetMatch(matchid int32) *Match {
+	return defaultMatchmgr.Get(matchid)
+}
+
 // Matchmgr 管理玩家
 type Matchmgr struct {
 	App    pitaya.Pitaya
 	Matchs map[int32]*Match
+	ticker *time.Ticker
 }
 
 // NewMatchmgr 创建玩家管理器
 func NewMatchmgr(app pitaya.Pitaya) *Matchmgr {
-	matchmgr := &Matchmgr{
+	m := &Matchmgr{
 		App:    app,
 		Matchs: make(map[int32]*Match),
+		ticker: time.NewTicker(time.Second),
 	}
 	// 启动40秒定时上报match人数
-	go matchmgr.startReportPlayerCount()
-	return matchmgr
+	go m.startReportPlayerCount()
+	go func() {
+		defer func() {
+			if r := recover(); r != nil {
+				logger.Log.Errorf("panic recovered %s\n %s", r, string(debug.Stack()))
+			}
+		}()
+		for range m.ticker.C {
+			m.tick()
+		}
+	}()
+	return m
+}
+
+func (m *Matchmgr) tick() {
+	for _, match := range m.Matchs {
+		match.Sub.Tick()
+	}
+}
+
+func (m *Matchmgr) LoadMatchs() error {
+	files, err := filepath.Glob(filepath.Join("etc", m.App.GetServer().Type, "*.yaml"))
+	if err != nil {
+		return err
+	}
+	for _, file := range files {
+		logger.Log.Infof("加载比赛配置: %s", file)
+		match := creator(m.App, file)
+		m.Add(match)
+	}
+	return nil
 }
 
 // startReportPlayerCount 启动定时上报match人数
@@ -44,11 +93,11 @@ func (m *Matchmgr) reportPlayerCount() {
 	for matchID, match := range m.Matchs {
 		info := &sproto.TourneyInfo{
 			Id:            matchID,
-			Name:          match.Conf.Name,
-			GameType:      match.Conf.GameType,
+			Name:          match.Viper.GetString("name"),
+			GameType:      match.Viper.GetString("game_type"),
 			MatchType:     m.App.GetServer().Type,
 			Serverid:      m.App.GetServerID(),
-			SignCondition: match.Conf.SignCondition,
+			SignCondition: match.Viper.GetString("sign_condition"),
 			Online:        int32(match.Playermgr.playerCount()),
 		}
 		req.Infos = append(req.Infos, info)
@@ -73,7 +122,7 @@ func (m *Matchmgr) sendTourneyReq(msg proto.Message) {
 }
 
 func (m *Matchmgr) Add(match *Match) {
-	m.Matchs[match.Conf.Matchid] = match
+	m.Matchs[match.Viper.GetInt32("matchid")] = match
 }
 
 func (m *Matchmgr) Get(matchId int32) *Match {

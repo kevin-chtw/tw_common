@@ -5,28 +5,41 @@ import (
 
 	"github.com/kevin-chtw/tw_common/utils"
 	"github.com/kevin-chtw/tw_proto/cproto"
+	"github.com/spf13/viper"
 	pitaya "github.com/topfreegames/pitaya/v3/pkg"
 	"github.com/topfreegames/pitaya/v3/pkg/logger"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/anypb"
 )
 
+type IMatch interface {
+	Tick()
+}
+
 type Match struct {
-	Sub       any
+	Sub       IMatch
 	App       pitaya.Pitaya
-	Conf      *Config
+	Viper     *viper.Viper
 	Playermgr *Playermgr
 	tableIds  *TableIDs
 }
 
-func NewMatch(app pitaya.Pitaya, conf *Config, sub any) *Match {
-	return &Match{
+func NewMatch(app pitaya.Pitaya, file string, sub IMatch) *Match {
+	m := &Match{
 		Sub:       sub,
 		App:       app,
-		Conf:      conf,
-		tableIds:  NewTableIDs(),
+		Viper:     viper.New(),
 		Playermgr: NewPlayermgr(),
+		tableIds:  NewTableIDs(),
 	}
+	m.initConfig(file)
+	return m
+}
+
+func (m *Match) initConfig(file string) error {
+	m.Viper.SetConfigType("yaml")
+	m.Viper.SetConfigFile(file)
+	return m.Viper.ReadInConfig()
 }
 
 func (m *Match) NewMatchAck(ctx context.Context, msg proto.Message) ([]byte, error) {
@@ -36,7 +49,7 @@ func (m *Match) NewMatchAck(ctx context.Context, msg proto.Message) ([]byte, err
 	}
 	out := &cproto.MatchAck{
 		Serverid: m.App.GetServerID(),
-		Matchid:  m.Conf.Matchid,
+		Matchid:  m.Viper.GetInt32("matchid"),
 		Ack:      data,
 	}
 	return utils.Marshal(ctx, out)
@@ -58,9 +71,9 @@ func (m *Match) PutBackTableId(id int32) {
 func (m *Match) NewStartClientAck(p *Player) *cproto.StartClientAck {
 	return &cproto.StartClientAck{
 		MatchType: m.App.GetServer().Type,
-		GameType:  m.Conf.GameType,
+		GameType:  m.Viper.GetString("game_type"),
 		ServerId:  m.App.GetServerID(),
-		MatchId:   m.Conf.Matchid,
+		MatchId:   m.Viper.GetInt32("matchid"),
 		TableId:   p.TableId,
 	}
 }
