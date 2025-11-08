@@ -13,15 +13,22 @@ import (
 	"google.golang.org/protobuf/types/known/anypb"
 )
 
-type Creator func(app pitaya.Pitaya, file string) *Match
+type MatchCreator func(pitaya.Pitaya, string) *Match
+type TableCreator func(*Match) *Table
+type PlayerCreator func(context.Context, string, int32, int64) *Player
 
 var (
-	creator         Creator
+	matchCreator    MatchCreator
+	tableCreator    TableCreator
+	playerCreator   PlayerCreator
 	defaultMatchmgr *Matchmgr
 )
 
 // Init 初始化游戏模块
-func Init(app pitaya.Pitaya, creator Creator) {
+func Init(app pitaya.Pitaya, mc MatchCreator, tc TableCreator, pc PlayerCreator) {
+	matchCreator = mc
+	tableCreator = tc
+	playerCreator = pc
 	defaultMatchmgr = NewMatchmgr(app)
 }
 
@@ -71,7 +78,7 @@ func (m *Matchmgr) LoadMatchs() error {
 	}
 	for _, file := range files {
 		logger.Log.Infof("加载比赛配置: %s", file)
-		match := creator(m.App, file)
+		match := matchCreator(m.App, file)
 		m.Add(match)
 	}
 	return nil

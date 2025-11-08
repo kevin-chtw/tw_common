@@ -2,6 +2,7 @@ package matchbase
 
 import (
 	"context"
+	"sync"
 
 	"github.com/kevin-chtw/tw_common/utils"
 	"github.com/kevin-chtw/tw_proto/cproto"
@@ -21,6 +22,7 @@ type Match struct {
 	App       pitaya.Pitaya
 	Viper     *viper.Viper
 	Playermgr *Playermgr
+	tables    sync.Map
 	tableIds  *TableIDs
 }
 
@@ -86,4 +88,20 @@ func (m *Match) PushMsg(p *Player, msg proto.Message) error {
 	}
 	_, err = m.App.SendPushToUsers(m.App.GetServer().Type, data, []string{p.ID}, "proxy")
 	return err
+}
+
+func (m *Match) GetTable(id int32) *Table {
+	if t, ok := m.tables.Load(id); ok {
+		return t.(*Table)
+	}
+	return nil
+}
+
+func (m *Match) AddTable(t *Table) {
+	m.tables.Store(t.ID, t)
+}
+
+func (m *Match) DelTable(id int32) {
+	m.tables.Delete(id)
+	m.PutBackTableId(id)
 }

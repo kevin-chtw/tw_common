@@ -13,13 +13,15 @@ import (
 )
 
 type Table struct {
+	Sub     any
 	Match   *Match
 	ID      int32
 	Players map[string]*Player
 }
 
-func NewTable(m *Match) *Table {
+func NewTable(m *Match, sub any) *Table {
 	return &Table{
+		Sub:     sub,
 		Match:   m,
 		ID:      m.nextTableID(),
 		Players: make(map[string]*Player),
