@@ -66,7 +66,7 @@ func (m *Match) ValidatePlayer(ctx context.Context, opts ...ValidateOption) (*Pl
 	}
 
 	// 验证玩家
-	player := m.Playermgr.Load(uid)
+	player := m.playermgr.Load(uid)
 	if options.checkPlayerNotInMatch && player != nil {
 		return nil, errors.New("player is in match")
 	}
@@ -76,7 +76,7 @@ func (m *Match) ValidatePlayer(ctx context.Context, opts ...ValidateOption) (*Pl
 			return nil, errors.New("player not found")
 		}
 		player = playerCreator(ctx, uid, m.Viper.GetInt32("matchid"), m.Viper.GetInt64("initial_chips"))
-		m.Playermgr.Store(player)
+		m.playermgr.Store(player)
 	}
 
 	return player, nil

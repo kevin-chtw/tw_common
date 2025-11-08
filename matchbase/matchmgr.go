@@ -14,20 +14,17 @@ import (
 )
 
 type MatchCreator func(pitaya.Pitaya, string) *Match
-type TableCreator func(*Match) *Table
 type PlayerCreator func(context.Context, string, int32, int64) *Player
 
 var (
 	matchCreator    MatchCreator
-	tableCreator    TableCreator
 	playerCreator   PlayerCreator
 	defaultMatchmgr *Matchmgr
 )
 
 // Init 初始化游戏模块
-func Init(app pitaya.Pitaya, mc MatchCreator, tc TableCreator, pc PlayerCreator) {
+func Init(app pitaya.Pitaya, mc MatchCreator, pc PlayerCreator) {
 	matchCreator = mc
-	tableCreator = tc
 	playerCreator = pc
 	defaultMatchmgr = NewMatchmgr(app)
 }
@@ -49,6 +46,10 @@ func NewMatchmgr(app pitaya.Pitaya) *Matchmgr {
 		App:    app,
 		Matchs: make(map[int32]*Match),
 		ticker: time.NewTicker(time.Second),
+	}
+	if err := m.LoadMatchs(); err != nil {
+		logger.Log.Panicf("加载比赛配置失败: %v", err)
+		return nil
 	}
 	// 启动40秒定时上报match人数
 	go m.startReportPlayerCount()
@@ -105,7 +106,7 @@ func (m *Matchmgr) reportPlayerCount() {
 			MatchType:     m.App.GetServer().Type,
 			Serverid:      m.App.GetServerID(),
 			SignCondition: match.Viper.GetString("sign_condition"),
-			Online:        int32(match.Playermgr.playerCount()),
+			Online:        int32(match.playermgr.playerCount()),
 		}
 		req.Infos = append(req.Infos, info)
 	}

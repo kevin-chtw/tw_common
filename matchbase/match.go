@@ -4,6 +4,7 @@ import (
 	"context"
 	"sync"
 
+	"github.com/kevin-chtw/tw_common/storage"
 	"github.com/kevin-chtw/tw_common/utils"
 	"github.com/kevin-chtw/tw_proto/cproto"
 	"github.com/spf13/viper"
@@ -21,19 +22,28 @@ type Match struct {
 	Sub       IMatch
 	App       pitaya.Pitaya
 	Viper     *viper.Viper
-	Playermgr *Playermgr
+	Storage   *storage.ETCDMatching
+	playermgr *Playermgr
 	tables    sync.Map
 	tableIds  *TableIDs
 }
 
 func NewMatch(app pitaya.Pitaya, file string, sub IMatch) *Match {
+	module, err := app.GetModule("matchingstorage")
+	if err != nil {
+		logger.Log.Errorf(err.Error())
+		return nil
+	}
 	m := &Match{
 		Sub:       sub,
 		App:       app,
 		Viper:     viper.New(),
-		Playermgr: NewPlayermgr(),
+		playermgr: NewPlayermgr(),
 		tableIds:  NewTableIDs(),
+		Storage:   module.(*storage.ETCDMatching),
+		tables:    sync.Map{},
 	}
+
 	m.initConfig(file)
 	return m
 }
@@ -104,4 +114,22 @@ func (m *Match) AddTable(t *Table) {
 func (m *Match) DelTable(id int32) {
 	m.tables.Delete(id)
 	m.PutBackTableId(id)
+}
+
+func (m *Match) AddMatchPlayer(player *Player) {
+	m.playermgr.Store(player)
+	if err := m.Storage.Put(player.ID, m.Viper.GetInt32("matchid")); err != nil {
+		logger.Log.Error(err)
+	}
+}
+
+func (m *Match) DelMatchPlayer(pid string) {
+	m.playermgr.Delete(pid)
+	if err := m.Storage.Remove(pid); err != nil {
+		logger.Log.Error(err)
+	}
+}
+
+func (m *Match) GetMatchPlayer(pid string) *Player {
+	return m.playermgr.Load(pid)
 }

@@ -4,7 +4,6 @@ import (
 	"context"
 	"errors"
 
-	"github.com/kevin-chtw/tw_common/storage"
 	"github.com/kevin-chtw/tw_proto/cproto"
 	"github.com/kevin-chtw/tw_proto/sproto"
 	"github.com/topfreegames/pitaya/v3/pkg/logger"
@@ -13,18 +12,20 @@ import (
 )
 
 type Table struct {
-	Sub     any
-	Match   *Match
-	ID      int32
-	Players map[string]*Player
+	Sub         any
+	Match       *Match
+	ID          int32
+	PlayerCount int32
+	Players     map[string]*Player
 }
 
 func NewTable(m *Match, sub any) *Table {
 	return &Table{
-		Sub:     sub,
-		Match:   m,
-		ID:      m.nextTableID(),
-		Players: make(map[string]*Player),
+		Sub:         sub,
+		Match:       m,
+		ID:          m.nextTableID(),
+		PlayerCount: m.Viper.GetInt32("player_per_table"),
+		Players:     make(map[string]*Player),
 	}
 }
 
@@ -38,7 +39,7 @@ func (t *Table) IsOnTable(player *Player) bool {
 }
 
 func (t *Table) NetChange(player *Player, online bool) error {
-	if t.IsOnTable(player) {
+	if !t.IsOnTable(player) {
 		return errors.New("player is not on table")
 	}
 	t.SendNetState(player, online)
@@ -49,7 +50,7 @@ func (t *Table) NetChange(player *Player, online bool) error {
 }
 
 func (t *Table) AddPlayer(player *Player) error {
-	if len(t.Players) >= t.Match.Viper.GetInt("player_per_table") {
+	if len(t.Players) >= int(t.PlayerCount) {
 		return errors.New("table is full")
 	}
 
@@ -57,14 +58,6 @@ func (t *Table) AddPlayer(player *Player) error {
 		return errors.New("player already exists on table")
 	}
 
-	module, err := t.Match.App.GetModule("matchingstorage")
-	if err != nil {
-		return err
-	}
-	ms := module.(*storage.ETCDMatching)
-	if err = ms.Put(player.ID, t.Match.Viper.GetInt32("matchid")); err != nil {
-		return err
-	}
 	player.Seat = t.getSeat()
 	player.TableId = t.ID
 	t.Players[player.ID] = player
@@ -78,7 +71,7 @@ func (t *Table) SendAddTableReq(gameCount int32, fdproperty map[string]int32) {
 		ScoreBase:   t.Match.Viper.GetInt64("score_base"),
 		MatchType:   t.Match.App.GetServer().Type,
 		GameCount:   gameCount,
-		PlayerCount: t.Match.Viper.GetInt32("player_per_table"),
+		PlayerCount: t.PlayerCount,
 		Fdproperty:  fdproperty,
 	}
 	t.send2Game(req)
@@ -163,7 +156,7 @@ func (t *Table) send2Game(msg proto.Message) *sproto.GameAck {
 }
 
 func (t *Table) getSeat() int32 {
-	for i := range t.Match.Viper.GetInt("player_per_table") {
+	for i := range t.PlayerCount {
 		if !t.isUsed(int32(i)) {
 			return int32(i)
 		}

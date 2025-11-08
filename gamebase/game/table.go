@@ -406,6 +406,7 @@ func (t *Table) NotifyGameOver(gameId int32, roundData string) {
 
 	t.gameOnce.Do(func() {
 		result := &sproto.GameResultReq{
+			Tableid:      t.tableID,
 			CurGameCount: t.curGameCount,
 			Scores:       make(map[string]int64),
 			PlayerData:   make(map[string]string),
@@ -414,12 +415,12 @@ func (t *Table) NotifyGameOver(gameId int32, roundData string) {
 
 		for _, p := range t.players {
 			result.Scores[p.ack.Uid] = p.score
-			result.PlayerData[p.ack.Uid] = p.ack.Nickname
+			result.PlayerData[p.ack.Uid] = p.GetDatas()
 		}
 		t.Send2Match(result)
 		t.sendGameOver()
 		if t.curGameCount >= t.gameCount {
-			go t.gameOver()
+			t.gameOver()
 		} else {
 			go t.checkBegin()
 		}
