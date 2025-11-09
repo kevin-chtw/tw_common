@@ -154,6 +154,7 @@ func GetNextSeat(seat, step, seatCount int32) int32 {
 
 type Action struct {
 	Seat    int32
+	From    int32 //操作来源座位，比如吃碰杠胡时，是从哪个座位碰过来的
 	Operate int
 	Tile    Tile
 	Extra   Tile

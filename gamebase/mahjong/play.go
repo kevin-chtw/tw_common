@@ -21,7 +21,6 @@ type Play struct {
 	tilesLai     map[Tile]struct{}
 	history      []Action
 	playData     []*PlayData
-	huSeats      []int32
 	huResult     []*pbmj.MJHuData
 	selfCheckers []CheckerSelf
 	waitcheckers []CheckerWait
@@ -38,7 +37,6 @@ func NewPlay(playImp IPlay, game *Game, dealer *Dealer) *Play {
 		tilesLai:     make(map[Tile]struct{}),
 		history:      make([]Action, 0),
 		playData:     make([]*PlayData, game.GetPlayerCount()),
-		huSeats:      make([]int32, 0),
 		huResult:     make([]*pbmj.MJHuData, game.GetPlayerCount()),
 		selfCheckers: make([]CheckerSelf, 0),
 		waitcheckers: make([]CheckerWait, 0),
@@ -145,7 +143,7 @@ func (p *Play) Ting(tile Tile) bool {
 	}
 	if playData.Discard(tile) {
 		playData.SetTing(false)
-		p.addHistory(p.curSeat, OperateTing, p.curTile, 0)
+		p.addHistory(p.curSeat, p.curSeat, OperateTing, p.curTile, 0)
 		p.freshTingMuti(p.curSeat)
 		p.curTile = tile
 		p.game.GetGamePlayer(p.curSeat).AddData("ting", 1)
@@ -165,7 +163,7 @@ func (p *Play) Discard(tile Tile) bool {
 	}
 
 	if playData.Discard(tile) {
-		p.addHistory(p.curSeat, OperateDiscard, p.curTile, 0)
+		p.addHistory(p.curSeat, p.curSeat, OperateDiscard, p.curTile, 0)
 		p.FreshCallData(p.curSeat)
 		p.curTile = tile
 		return true
@@ -181,7 +179,7 @@ func (p *Play) ZhiKon(seat int32) {
 	}
 	playData.kon(p.curTile, p.curSeat, KonTypeZhi)
 	p.playData[p.curSeat].RemoveOutTile()
-	p.addHistory(seat, OperateKon, p.curTile, 0)
+	p.addHistory(seat, p.curSeat, OperateKon, p.curTile, 0)
 	p.game.GetGamePlayer(seat).AddData("kon", 1)
 	p.FreshCallData(seat)
 }
@@ -193,7 +191,7 @@ func (p *Play) TryKon(tile Tile, konType KonType) bool {
 	}
 
 	playData.kon(tile, p.curSeat, konType)
-	p.addHistory(p.curSeat, OperateKon, tile, 0)
+	p.addHistory(p.curSeat, p.curSeat, OperateKon, tile, 0)
 	p.game.GetGamePlayer(p.curSeat).AddData("kon", 1)
 	p.FreshCallData(p.curSeat)
 	p.curTile = tile
@@ -208,7 +206,7 @@ func (p *Play) Pon(seat int32) {
 	}
 	playData.Pon(p.curTile, p.curSeat)
 	p.playData[p.curSeat].RemoveOutTile()
-	p.addHistory(seat, OperatePon, p.curTile, 0)
+	p.addHistory(seat, p.curSeat, OperatePon, p.curTile, 0)
 	p.game.GetGamePlayer(seat).AddData("pon", 1)
 	p.FreshCallData(seat)
 }
@@ -222,7 +220,7 @@ func (p *Play) Chow(seat int32, leftTile Tile) {
 
 	playData.chow(tiles, p.curTile, leftTile, seat)
 	p.playData[p.curSeat].RemoveOutTile()
-	p.addHistory(seat, OperateChow, p.curTile, leftTile)
+	p.addHistory(seat, p.curSeat, OperateChow, p.curTile, leftTile)
 	p.game.GetGamePlayer(seat).AddData("chow", 1)
 	p.FreshCallData(seat)
 }
@@ -239,8 +237,7 @@ func (p *Play) Zimo() (multiples []int64) {
 		multiples[p.curSeat] += multi
 	}
 
-	p.huSeats = append(p.huSeats, p.curSeat)
-	p.addHistory(p.curSeat, OperateHu, p.curTile, 0)
+	p.addHistory(p.curSeat, p.curSeat, OperateHu, p.curTile, 0)
 	p.game.GetGamePlayer(p.curSeat).AddData("hu", 1)
 	return
 }
@@ -254,12 +251,23 @@ func (p *Play) PaoHu(huSeats []int32) []int64 {
 		multiples[p.curSeat] -= multi
 		if !p.game.GetPlayer(seat).IsOut() {
 			multiples[seat] = +multi
-			p.addHistory(p.curSeat, OperateHu, p.curTile, 0)
+			p.addHistory(seat, p.curSeat, OperateHu, p.curTile, 0)
 			p.game.GetGamePlayer(seat).AddData("hu", 1)
 		}
 	}
-	p.huSeats = append(p.huSeats, huSeats...)
 	p.game.GetGamePlayer(p.curSeat).AddData("dianpao", 1)
+	return multiples
+}
+
+func (p *Play) DianKonHua(paoSeat int32) []int64 {
+	multiples := make([]int64, p.game.GetPlayerCount())
+	huResult := p.huResult[p.curSeat]
+	multi := p.PlayConf.GetRealMultiple(huResult.Multi)
+	multiples[p.curSeat] += multi
+	multiples[paoSeat] = -multi
+	p.addHistory(p.curSeat, paoSeat, OperateHu, p.curTile, 0)
+	p.game.GetGamePlayer(p.curSeat).AddData("hu", 1)
+	p.game.GetGamePlayer(paoSeat).AddData("diankh", 1)
 	return multiples
 }
 
@@ -268,7 +276,7 @@ func (p *Play) Draw() Tile {
 	if tile != TileNull {
 		p.curTile = tile
 		p.playData[p.curSeat].PutHandTile(tile)
-		p.addHistory(p.curSeat, OperateDraw, tile, 0)
+		p.addHistory(p.curSeat, p.curSeat, OperateDraw, tile, 0)
 		p.FreshCallData(p.curSeat)
 	}
 	return tile
@@ -280,6 +288,18 @@ func (p *Play) IsAfterPon() bool {
 
 func (p *Play) IsAfterKon() bool {
 	return len(p.history) > 0 && p.history[len(p.history)-1].Operate == OperateKon
+}
+
+func (p *Play) IsAfterZhiKon() int32 {
+	if len(p.history) == 0 {
+		return SeatNull
+	}
+
+	lastAction := p.history[len(p.history)-1]
+	if lastAction.Operate != OperateKon || lastAction.Seat == lastAction.From {
+		return SeatNull
+	}
+	return lastAction.From
 }
 
 func (p *Play) DoSwitchSeat(seat int32) {
@@ -349,9 +369,10 @@ func (p *Play) getLastGameData() *LastGameData {
 	return lgd
 }
 
-func (p *Play) addHistory(seat int32, operate int, tile Tile, extra Tile) {
+func (p *Play) addHistory(seat, from int32, operate int, tile Tile, extra Tile) {
 	action := Action{
 		Seat:    seat,
+		From:    from,
 		Operate: operate,
 		Tile:    tile,
 		Extra:   extra,
