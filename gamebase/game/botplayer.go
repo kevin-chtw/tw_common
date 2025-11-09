@@ -8,6 +8,7 @@ import (
 
 type IBot interface {
 	OnBotMsg(msg proto.Message) error
+	OnTimer() error
 }
 
 // BotPlayer 表示游戏中的bot玩家
@@ -30,4 +31,8 @@ func (b *BotPlayer) OnBotMsg(msg proto.Message) error {
 		return errors.New("bot player has no bot")
 	}
 	return b.Bot.OnBotMsg(msg)
+}
+
+func (b *BotPlayer) SendMsg(msg proto.Message) {
+	botManager.SendToTable(b.Uid, msg)
 }

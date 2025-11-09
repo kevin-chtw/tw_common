@@ -64,10 +64,7 @@ func (m *BotManager) processIncomingMessages() {
 		if bot == nil {
 			bot = m.AddBot(msg.BotID)
 		}
-		switch v := msg.Msg.(type) {
-		case *cproto.GameAck:
-			bot.OnBotMsg(v)
-		}
+		bot.OnBotMsg(msg.Msg.(proto.Message))
 	}
 }
 
