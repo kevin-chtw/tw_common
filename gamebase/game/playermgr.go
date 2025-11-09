@@ -29,14 +29,14 @@ func (p *PlayerManager) Get(userID string) (player *Player) {
 	return
 }
 
-func (p *PlayerManager) Store(ack *sproto.PlayerInfoAck, seat int32, score int64) (*Player, error) {
+func (p *PlayerManager) Store(ack *sproto.PlayerInfoAck, bot bool, seat int32, score int64) (*Player, error) {
 	p.mu.Lock()
 	defer p.mu.Unlock()
 	if _, ok := p.players[ack.Uid]; ok {
 		return nil, errors.New("player is already in game")
 	}
 
-	player := newPlayer(ack, seat, score)
+	player := newPlayer(ack, bot, seat, score)
 	p.players[ack.Uid] = player
 	return player, nil
 }

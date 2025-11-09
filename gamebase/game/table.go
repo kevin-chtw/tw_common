@@ -300,6 +300,9 @@ func (t *Table) checkBegin() {
 	}
 
 	for _, player := range t.players {
+		if player.isBot {
+			continue
+		}
 		if !player.enter || (!player.ack.Ready && t.MatchType == "fdtable") {
 			return
 		}
@@ -327,7 +330,7 @@ func (t *Table) HandleAddPlayer(ctx context.Context, msg proto.Message) (proto.M
 		return nil, errors.New("player already on table")
 	}
 
-	rsp, err := t.send2Account(&sproto.PlayerInfoReq{Uid: req.Playerid})
+	rsp, err := t.send2Account(req.Bot, &sproto.PlayerInfoReq{Uid: req.Playerid})
 	if err != nil {
 		return nil, err
 	}
@@ -336,12 +339,16 @@ func (t *Table) HandleAddPlayer(ctx context.Context, msg proto.Message) (proto.M
 	if err != nil {
 		return nil, err
 	}
-	player, err := playerManager.Store(account.(*sproto.PlayerInfoAck), req.Seat, req.Score)
+	player, err := playerManager.Store(account.(*sproto.PlayerInfoAck), req.Bot, req.Seat, req.Score)
 	if err != nil {
 		return nil, err
 	}
 	player.Ctx = ctx
 	t.players[req.Playerid] = player
+
+	if player.isBot {
+		t.handleEnterGame(player, nil)
+	}
 
 	return &sproto.EmptyAck{}, nil
 }
@@ -444,13 +451,14 @@ func (t *Table) gameOver() {
 	t.gameMutex.Unlock()
 }
 
-func (t *Table) send2Account(msg proto.Message) (proto.Message, error) {
+func (t *Table) send2Account(bot bool, msg proto.Message) (proto.Message, error) {
 	logger.Log.Info(msg)
 	data, err := anypb.New(msg)
 	if err != nil {
 		return nil, nil
 	}
 	req := &sproto.AccountReq{
+		Bot: bot,
 		Req: data,
 	}
 	ack := &sproto.AccountAck{}
@@ -512,7 +520,7 @@ func (t *Table) sendTableMsg(ack proto.Message, player *Player) {
 	}
 	jsonMsg := t.newMsg(jsonTableMsg)
 
-	if utils.IsWebsocket(player.Ctx) {
+	if !player.isBot && utils.IsWebsocket(player.Ctx) {
 		t.sendMsg(jsonMsg, player)
 	} else {
 		t.sendMsg(pbMsg, player)
@@ -575,15 +583,14 @@ func (t *Table) broadcast(ack proto.Message) {
 }
 
 func (t *Table) sendMsg(msg *cproto.GameAck, player *Player) {
-	data, err := utils.Marshal(player.Ctx, msg)
-	if err != nil {
-		logger.Log.Error(err.Error())
-		return
-	}
-
 	if player.isBot {
 		// 如果是bot玩家，通过BotManager处理消息
 		botManager.OnBotMessage(player.ack.Uid, msg)
+		return
+	}
+	data, err := utils.Marshal(player.Ctx, msg)
+	if err != nil {
+		logger.Log.Error(err.Error())
 		return
 	}
 	if !player.enter || !player.online {

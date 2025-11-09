@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"strings"
 
 	"github.com/kevin-chtw/tw_proto/cproto"
 	"github.com/kevin-chtw/tw_proto/sproto"
@@ -24,13 +23,13 @@ type Player struct {
 }
 
 // newPlayer 创建新玩家实例
-func newPlayer(ack *sproto.PlayerInfoAck, seat int32, score int64) *Player {
+func newPlayer(ack *sproto.PlayerInfoAck, bot bool, seat int32, score int64) *Player {
 	p := &Player{
 		datas:  make(map[string]int32),
 		score:  score,
 		online: true,
 		enter:  false,
-		isBot:  strings.HasPrefix(ack.Uid, "bot_"), // 判断是否是bot玩家
+		isBot:  bot, // 判断是否是bot玩家
 	}
 	p.ack = &cproto.TablePlayerAck{
 		Uid:      ack.Uid,

@@ -83,6 +83,7 @@ func (t *Table) SendAddPlayer(player *Player) {
 		Playerid: player.ID,
 		Seat:     player.Seat,
 		Score:    player.Score,
+		Bot:      player.Bot,
 	}
 	t.send2Game(req)
 }
