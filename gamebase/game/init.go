@@ -8,28 +8,24 @@ const (
 	SeatAll int32 = -2
 )
 
-var playerManager *PlayerManager
-var tableManager *TableManager
+var (
+	gameCreator   GameCreator
+	botCreator    BotCreator
+	playerManager *PlayerManager
+	tableManager  *TableManager
+	botManager    *BotManager
+)
 
-type NewGame func(*Table, int32) IGame
+type GameCreator func(*Table, int32) IGame
+type BotCreator func(uid string) *BotPlayer
 
-var fn = make(map[string]NewGame)
-
-func Register(serverType string, f NewGame) {
-	fn[serverType] = f
-}
-
-func CreateGame(serverType string, t *Table, id int32) IGame {
-	if f, ok := fn[serverType]; ok {
-		return f(t, id)
-	}
-	return nil
-}
-
-// InitGame 初始化游戏模块
-func InitGame(app pitaya.Pitaya) {
+// Init 初始化游戏模块
+func Init(app pitaya.Pitaya, gc GameCreator, bc BotCreator) {
+	gameCreator = gc
+	botCreator = bc
 	playerManager = NewPlayerManager()
 	tableManager = NewTableManager(app)
+	botManager = NewBotManager()
 }
 
 // GetPlayerManager 获取玩家管理器实例

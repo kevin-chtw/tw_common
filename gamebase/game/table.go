@@ -96,7 +96,7 @@ func (t *Table) init() {
 }
 
 // OnPlayerMsg 处理玩家消息
-func (t *Table) OnPlayerMsg(ctx context.Context, player *Player, req *cproto.GameReq) error {
+func (t *Table) OnPlayerMsg(player *Player, req *cproto.GameReq) error {
 	if req == nil || req.Req == nil {
 		return errors.New("invalid request")
 	}
@@ -207,7 +207,7 @@ func (t *Table) gameBegin() {
 	t.gameOnce = sync.Once{}
 	t.sendGameBegin()
 	t.historyMsg = make(map[string][]*cproto.GameAck)
-	t.game = CreateGame(t.App.GetServer().Type, t, t.curGameCount)
+	t.game = gameCreator(t, t.curGameCount)
 	t.game.OnGameBegin()
 }
 
@@ -581,6 +581,11 @@ func (t *Table) sendMsg(msg *cproto.GameAck, player *Player) {
 		return
 	}
 
+	if player.isBot {
+		// 如果是bot玩家，通过BotManager处理消息
+		botManager.OnBotMessage(player.ack.Uid, msg)
+		return
+	}
 	if !player.enter || !player.online {
 		return
 	}

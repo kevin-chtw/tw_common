@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"strings"
 
 	"github.com/kevin-chtw/tw_proto/cproto"
 	"github.com/kevin-chtw/tw_proto/sproto"
@@ -19,6 +20,7 @@ type Player struct {
 	online  bool             // 玩家是否在线
 	enter   bool             // 玩家是否进入游戏
 	entered bool             // 玩家是否进入过游戏
+	isBot   bool             // 是否是bot玩家
 }
 
 // newPlayer 创建新玩家实例
@@ -28,6 +30,7 @@ func newPlayer(ack *sproto.PlayerInfoAck, seat int32, score int64) *Player {
 		score:  score,
 		online: true,
 		enter:  false,
+		isBot:  strings.HasPrefix(ack.Uid, "bot_"), // 判断是否是bot玩家
 	}
 	p.ack = &cproto.TablePlayerAck{
 		Uid:      ack.Uid,
@@ -74,5 +77,5 @@ func (p *Player) HandleMessage(ctx context.Context, req *cproto.GameReq) error {
 		return fmt.Errorf("table not found %d", req.Tableid)
 	}
 	p.Ctx = ctx
-	return table.OnPlayerMsg(ctx, p, req)
+	return table.OnPlayerMsg(p, req)
 }

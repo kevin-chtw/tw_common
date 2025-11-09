@@ -65,7 +65,7 @@ func (t *Table) AddPlayer(player *Player) error {
 	return nil
 }
 
-func (t *Table) SendAddTableReq(gameCount int32, fdproperty map[string]int32) {
+func (t *Table) SendAddTableReq(gameCount int32, creator string, fdproperty map[string]int32) {
 	req := &sproto.AddTableReq{
 		Property:    t.Match.Viper.GetString("property"),
 		ScoreBase:   t.Match.Viper.GetInt64("score_base"),
@@ -73,6 +73,7 @@ func (t *Table) SendAddTableReq(gameCount int32, fdproperty map[string]int32) {
 		GameCount:   gameCount,
 		PlayerCount: t.PlayerCount,
 		Fdproperty:  fdproperty,
+		Creator:     creator,
 	}
 	t.send2Game(req)
 }
