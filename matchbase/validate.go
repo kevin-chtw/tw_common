@@ -106,7 +106,7 @@ func (m *Match) ValidateTable(player *Player, opts ...ValidateOption) (*Table, e
 	}
 	t := table.(*Table)
 	// 验证玩家在桌子中（如果需要）
-	if options.requirePlayerInTable && t.IsOnTable(player) {
+	if options.requirePlayerInTable && !t.IsOnTable(player) {
 		return nil, errors.New("player not in specified table")
 	}
 

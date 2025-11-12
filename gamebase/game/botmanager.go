@@ -1,9 +1,12 @@
 package game
 
 import (
+	"runtime/debug"
 	"sync"
+	"time"
 
 	"github.com/kevin-chtw/tw_proto/cproto"
+	"github.com/topfreegames/pitaya/v3/pkg/logger"
 	"google.golang.org/protobuf/proto"
 )
 
@@ -13,6 +16,7 @@ type BotManager struct {
 	msgInChan  chan *BotMessage      // 接收消息通道
 	msgOutChan chan *BotMessage      // 发送消息通道
 	mu         sync.RWMutex
+	ticker     *time.Ticker
 }
 
 // BotMessage 定义bot消息结构
@@ -28,15 +32,39 @@ func NewBotManager() *BotManager {
 		msgInChan:  make(chan *BotMessage, 100),
 		msgOutChan: make(chan *BotMessage, 100),
 		mu:         sync.RWMutex{},
+		ticker:     time.NewTicker(time.Second),
 	}
+	go func() {
+		defer func() {
+			if r := recover(); r != nil {
+				logger.Log.Errorf("panic recovered %s\n %s", r, string(debug.Stack()))
+			}
+		}()
+		for range bm.ticker.C {
+			bm.tick()
+		}
+	}()
 	go bm.processIncomingMessages()
 	go bm.processOutgoingMessages()
 	return bm
 }
 
+func (b *BotManager) tick() {
+	b.mu.RLock()
+	bots := make([]*BotPlayer, 0, len(b.bots))
+	for _, bot := range b.bots {
+		bots = append(bots, bot)
+	}
+	b.mu.RUnlock()
+
+	for _, bot := range bots {
+		bot.Bot.OnTimer()
+	}
+}
+
 // AddBot 添加一个新的bot玩家
-func (m *BotManager) AddBot(uid string) *BotPlayer {
-	bot := botCreator(uid)
+func (m *BotManager) AddBot(uid string, matchid, tableid int32) *BotPlayer {
+	bot := botCreator(uid, matchid, tableid)
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	m.bots[bot.Uid] = bot
@@ -59,17 +87,28 @@ func (m *BotManager) GetBot(botID string) *BotPlayer {
 
 // processIncomingMessages 处理接收到的消息
 func (m *BotManager) processIncomingMessages() {
+	defer func() {
+		if r := recover(); r != nil {
+			logger.Log.Errorf("panic recovered %s\n %s", r, string(debug.Stack()))
+		}
+	}()
 	for msg := range m.msgInChan {
 		bot := m.GetBot(msg.BotID)
+		ack := msg.Msg.(*cproto.GameAck)
 		if bot == nil {
-			bot = m.AddBot(msg.BotID)
+			bot = m.AddBot(msg.BotID, ack.Matchid, ack.Tableid)
 		}
-		bot.OnBotMsg(msg.Msg.(proto.Message))
+		bot.OnBotMsg(ack)
 	}
 }
 
 // processOutgoingMessages 处理要发送的消息
 func (m *BotManager) processOutgoingMessages() {
+	defer func() {
+		if r := recover(); r != nil {
+			logger.Log.Errorf("panic recovered %s\n %s", r, string(debug.Stack()))
+		}
+	}()
 	for msg := range m.msgOutChan {
 		tableManager.OnBotMsg(msg.BotID, msg.Msg.(proto.Message))
 	}

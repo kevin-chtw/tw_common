@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"maps"
 	"math/rand"
-	"os"
 	"path/filepath"
 
 	"github.com/spf13/viper"
@@ -23,7 +22,7 @@ func newManual(name string, matchId int32) *Manual {
 	m.vp.SetConfigType("yaml")
 	m.vp.SetConfigFile(filepath.Join(".", "initcard", fmt.Sprintf("%s_%d.yaml", name, matchId)))
 	if err := m.vp.ReadInConfig(); err != nil {
-		fmt.Fprintf(os.Stderr, "read config file error: %v\n", err)
+		//fmt.Fprintf(os.Stderr, "read config file error: %v\n", err)
 		return nil
 	}
 	return m
@@ -57,7 +56,7 @@ func (m *Manual) load(tiles map[Tile]int, playerCount, handCount int) ([]Tile, e
 	var rests []Tile
 	for t, count := range tmp {
 		if count > 0 {
-			rests = append(rests, makeTiles(t, count)...)
+			rests = append(rests, MakeTiles(t, count)...)
 		}
 	}
 

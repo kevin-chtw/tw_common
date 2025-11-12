@@ -38,7 +38,6 @@ func ToAny(ack proto.Message) *anypb.Any {
 func IsWebsocket(ctx context.Context) bool {
 	sessionVal := ctx.Value(constants.SessionCtxKey)
 	if sessionVal == nil {
-		logger.Log.Error("ctx doesn't contain a session, are you calling GetSessionFromCtx from inside a remote?")
 		return false
 	}
 	s := sessionVal.(session.Session)

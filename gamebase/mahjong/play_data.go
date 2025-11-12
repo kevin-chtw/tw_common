@@ -101,8 +101,14 @@ func (p *PlayData) Discard(tile Tile) bool {
 	if !slices.Contains(p.handTiles, tile) {
 		return false
 	}
+	tiles := make(map[Tile]int)
+	for _, t := range p.handTiles {
+		tiles[t]++
+	}
+	logger.Log.Info("%v", tiles)
+
 	p.handTiles = RemoveElements(p.handTiles, tile, 1)
-	logger.Log.Info(p.handTiles)
+
 	p.PutOutTile(tile)
 	p.callData = make(map[Tile]int64)
 	if callMap, ok := p.callDataMap[tile]; ok {

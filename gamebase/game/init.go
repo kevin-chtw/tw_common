@@ -17,7 +17,7 @@ var (
 )
 
 type GameCreator func(*Table, int32) IGame
-type BotCreator func(uid string) *BotPlayer
+type BotCreator func(uid string, matchid, tableid int32) *BotPlayer
 
 // Init 初始化游戏模块
 func Init(app pitaya.Pitaya, gc GameCreator, bc BotCreator) {

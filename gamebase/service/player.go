@@ -37,7 +37,7 @@ func (p *Player) Message(ctx context.Context, data []byte) {
 		return
 	}
 
-	player := game.GetPlayerManager().Get(userID)
+	player := game.GetPlayerManager().Get(false, userID)
 	if player == nil {
 		logger.Log.Error("player not found in player manager")
 		return

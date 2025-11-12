@@ -47,7 +47,8 @@ func (t *Timer) OnTick() {
 	}
 
 	if time.Now().After(t.triggerTime) {
-		t.callback()
-		t.callback = nil
+		c := t.callback
+		t.callback = nil // 先置为nil，防止回调函数内部修改它
+		c()              // 然后执行回调
 	}
 }

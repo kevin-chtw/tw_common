@@ -21,29 +21,36 @@ func NewPlayerManager() *PlayerManager {
 }
 
 // Get 获取玩家实例
-func (p *PlayerManager) Get(userID string) (player *Player) {
+func (p *PlayerManager) Get(bot bool, uid string) (player *Player) {
 	p.mu.RLock()
 	defer p.mu.RUnlock()
 
-	player = p.players[userID]
+	player = p.players[getKey(bot, uid)]
 	return
 }
 
 func (p *PlayerManager) Store(ack *sproto.PlayerInfoAck, bot bool, seat int32, score int64) (*Player, error) {
 	p.mu.Lock()
 	defer p.mu.Unlock()
-	if _, ok := p.players[ack.Uid]; ok {
+	if _, ok := p.players[getKey(bot, ack.Uid)]; ok {
 		return nil, errors.New("player is already in game")
 	}
 
 	player := newPlayer(ack, bot, seat, score)
-	p.players[ack.Uid] = player
+	p.players[getKey(bot, ack.Uid)] = player
 	return player, nil
 }
 
 // DeletePlayer 删除玩家实例
-func (p *PlayerManager) Delete(userID string) {
+func (p *PlayerManager) Delete(bot bool, userID string) {
 	p.mu.Lock()
 	defer p.mu.Unlock()
-	delete(p.players, userID)
+	delete(p.players, getKey(bot, userID))
+}
+
+func getKey(bot bool, uid string) string {
+	if bot {
+		return "bot_" + uid
+	}
+	return uid
 }

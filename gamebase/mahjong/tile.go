@@ -207,7 +207,7 @@ func nameToTile(name string) Tile {
 	return TileNull
 }
 
-func makeTiles(t Tile, count int) []Tile {
+func MakeTiles(t Tile, count int) []Tile {
 	if count <= 0 {
 		return []Tile{}
 	}
@@ -216,4 +216,48 @@ func makeTiles(t Tile, count int) []Tile {
 		res[i] = t
 	}
 	return res
+}
+
+// 仅考虑麻将牌，不考虑花牌和季牌
+func ToIndexs(tiles []Tile) []int {
+	t := make([]int, 34)
+	for _, tile := range tiles {
+		if !tile.IsValid() {
+			return t
+		}
+		pos := ToIndex(tile)
+		if tiles[pos]++; tiles[pos] > 4 {
+			return t
+		}
+	}
+	return t
+}
+
+func ToIndex(tile Tile) int {
+	color, point := tile.Info()
+	return SEQ_BEGIN_BY_COLOR[color] + point
+}
+
+// 仅考虑麻将牌，不考虑花牌和季牌
+func FromIndexs(idx []int) []Tile {
+	tiles := make([]Tile, 0)
+	for i := range tiles {
+		if idx[i] > 0 {
+			tiles = append(tiles, MakeTiles(FromIndex(i), idx[i])...)
+		}
+	}
+	return tiles
+}
+
+func FromIndex(idx int) Tile {
+	totalTiles := 0
+	for color := range ColorFlower {
+		count := PointCountByColor[color]
+		if idx < totalTiles+count {
+			point := idx - totalTiles
+			return MakeTile(color, point)
+		}
+		totalTiles += count
+	}
+	return TileNull
 }

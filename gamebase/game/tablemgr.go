@@ -50,7 +50,7 @@ func (t *TableManager) tick() {
 	t.mu.RUnlock()
 
 	for _, table := range tables {
-		table.tick()
+		table.Tick()
 	}
 }
 
@@ -83,7 +83,7 @@ func (t *TableManager) LoadOrStore(matchId, tableId int32) *Table {
 func (t *TableManager) OnBotMsg(uid string, msg proto.Message) {
 	req := msg.(*cproto.GameReq)
 	table := t.Get(req.Matchid, req.Tableid)
-	player := playerManager.Get(uid)
+	player := playerManager.Get(true, uid)
 	if table != nil && player != nil {
 		table.OnPlayerMsg(player, req)
 	}

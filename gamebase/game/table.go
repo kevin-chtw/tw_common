@@ -100,13 +100,19 @@ func (t *Table) OnPlayerMsg(player *Player, req *cproto.GameReq) error {
 	if req == nil || req.Req == nil {
 		return errors.New("invalid request")
 	}
+
+	// 从当前桌子获取玩家对象，确保使用正确的玩家实例
+	tablePlayer, ok := t.players[player.ack.Uid]
+	if !ok {
+		return errors.New("player not on table")
+	}
+
 	msg, err := req.Req.UnmarshalNew()
 	if err != nil {
 		return err
 	}
-	logger.Log.Infof("player %s recive msg %v", player.ack.Uid, utils.JsonMarshal.Format(msg))
 	if handler, ok := t.handlers[req.Req.TypeUrl]; ok {
-		return handler(player, msg)
+		return handler(tablePlayer, msg)
 	}
 
 	return errors.New("unknown request type")
@@ -372,8 +378,13 @@ func (t *Table) HandleExitTable(ctx context.Context, msg proto.Message) (proto.M
 		return nil, errors.New("game is not over")
 	}
 
+	player, ok := t.players[req.Playerid]
+	if !ok {
+		return nil, errors.New("player not on table")
+	}
+
 	delete(t.players, req.Playerid)
-	playerManager.Delete(req.Playerid) // 从玩家管理器中删除玩家
+	playerManager.Delete(player.isBot, req.Playerid) // 从玩家管理器中删除玩家
 	ack := &cproto.GameExitAck{
 		Uid: req.Playerid,
 	}
@@ -383,9 +394,12 @@ func (t *Table) HandleExitTable(ctx context.Context, msg proto.Message) (proto.M
 
 func (t *Table) HandleNetState(ctx context.Context, msg proto.Message) (proto.Message, error) {
 	req := msg.(*sproto.NetStateReq)
-	player := playerManager.Get(req.Uid)
-	if player == nil {
-		return nil, errors.New("player not found")
+
+	// 检查玩家是否在当前桌子上（match 服务可能发送所有玩家的状态）
+	player, ok := t.players[req.Uid]
+	if !ok {
+		// 玩家不在当前桌子上，直接返回成功（可能是其他桌子的玩家）
+		return &sproto.NetStateAck{Uid: req.Uid}, nil
 	}
 
 	logger.Log.Infof("Player %s online status changed to %v", req.Uid, req.Online)
@@ -441,7 +455,7 @@ func (t *Table) gameOver() {
 	}
 	t.Send2Match(gameOver)
 	for _, player := range t.players {
-		playerManager.Delete(player.ack.Uid) // 从玩家管理器中删除玩家
+		playerManager.Delete(player.isBot, player.ack.Uid) // 从玩家管理器中删除玩家
 	}
 	tableManager.Delete(t.MatchID, t.tableID) // 从桌子管理器中删除
 
@@ -565,7 +579,7 @@ func (t *Table) GetScoreBase() int64 {
 	return int64(t.scoreBase)
 }
 
-func (t *Table) tick() {
+func (t *Table) Tick() {
 	t.checkDissolve()
 	t.gameMutex.Lock()
 	defer t.gameMutex.Unlock()
