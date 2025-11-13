@@ -88,7 +88,7 @@ func (p *Play) GetPlayData(seat int32) *PlayData {
 	return p.playData[seat]
 }
 
-func (p *Play) FetchSelfOperates() *Operates {
+func (p *Play) FetchSelfOperates(sender *Sender) *Operates {
 	opt := NewOperates(OperateDiscard)
 
 	for _, v := range p.selfCheckers {
@@ -96,13 +96,13 @@ func (p *Play) FetchSelfOperates() *Operates {
 	}
 
 	if len(opt.Tips) > 0 {
-		p.sendTips(opt.Tips[0], p.curSeat)
+		sender.SendTipAck(p.curSeat, opt.Tips[0])
 	}
 
 	return opt
 }
 
-func (p *Play) FetchWaitOperates(seat int32) *Operates {
+func (p *Play) FetchWaitOperates(seat int32, sender *Sender) *Operates {
 	opt := NewOperates(OperatePass)
 	if p.game.GetPlayer(seat).isOut {
 		return opt
@@ -113,27 +113,23 @@ func (p *Play) FetchWaitOperates(seat int32) *Operates {
 	}
 
 	if len(opt.Tips) > 0 {
-		p.sendTips(opt.Tips[0], seat)
+		sender.SendTipAck(seat, opt.Tips[0])
 	}
+
 	return opt
 }
 
-func (p *Play) FetchAfterBuKonOperates(seat int32, checker CheckerWait) *Operates {
+func (p *Play) FetchAfterBuKonOperates(seat int32, checker CheckerWait, sender *Sender) *Operates {
 	opt := NewOperates(OperatePass)
 	if p.game.GetPlayer(seat).isOut {
 		return opt
 	}
 
 	checker.Check(seat, opt)
-
 	if len(opt.Tips) > 0 {
-		p.sendTips(opt.Tips[0], seat)
+		sender.SendTipAck(seat, opt.Tips[0])
 	}
 	return opt
-}
-
-func (p *Play) sendTips(tips int32, seat int32) {
-	//TODO
 }
 
 func (p *Play) Ting(tile Tile) bool {

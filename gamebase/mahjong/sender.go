@@ -253,3 +253,11 @@ func (s *Sender) SendResult(liuju bool) {
 	s.game.SetRoundData(utils.JsonMarshal.Format(resultAck))
 	s.SendMsg(resultAck, game.SeatAll)
 }
+
+func (s *Sender) SendTipAck(seat int32, tip int32) {
+	tipAck := &pbmj.MJTipAck{
+		Seat: seat,
+		Tip:  tip,
+	}
+	s.SendMsg(tipAck, seat)
+}

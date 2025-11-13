@@ -42,7 +42,9 @@ func (t *Table) NetChange(player *Player, online bool) error {
 	if !t.IsOnTable(player) {
 		return errors.New("player is not on table")
 	}
-	t.SendNetState(player, online)
+	if err := t.SendNetState(player, online); err != nil {
+		return err
+	}
 	if online {
 		t.SendStartClient(player)
 	}
@@ -61,11 +63,17 @@ func (t *Table) AddPlayer(player *Player) error {
 	player.Seat = t.getSeat()
 	player.TableId = t.ID
 	t.Players[player.ID] = player
-	t.SendAddPlayer(player)
+	if err := t.SendAddPlayer(player); err != nil {
+		// 发送失败时清理本地状态，避免不一致
+		delete(t.Players, player.ID)
+		player.Seat = -1
+		player.TableId = 0
+		return err
+	}
 	return nil
 }
 
-func (t *Table) SendAddTableReq(gameCount int32, creator string, fdproperty map[string]int32) {
+func (t *Table) SendAddTableReq(gameCount int32, creator string, fdproperty map[string]int32) error {
 	req := &sproto.AddTableReq{
 		Property:    t.Match.Viper.GetString("property"),
 		ScoreBase:   t.Match.Viper.GetInt64("score_base"),
@@ -75,33 +83,49 @@ func (t *Table) SendAddTableReq(gameCount int32, creator string, fdproperty map[
 		Fdproperty:  fdproperty,
 		Creator:     creator,
 	}
-	t.send2Game(req)
+	_, err := t.send2Game(req)
+	if err != nil {
+		logger.Log.Errorf("Failed to send add table request: %v", err)
+		return err
+	}
+	return nil
 }
 
-func (t *Table) SendAddPlayer(player *Player) {
+func (t *Table) SendAddPlayer(player *Player) error {
 	req := &sproto.AddPlayerReq{
 		Playerid: player.ID,
 		Seat:     player.Seat,
 		Score:    player.Score,
 		Bot:      player.Bot,
 	}
-	t.send2Game(req)
+	_, err := t.send2Game(req)
+	if err != nil {
+		logger.Log.Errorf("Failed to send add player request: %v", err)
+		return err
+	}
+	return nil
 }
 
 func (t *Table) SendExitTableReq(player *Player) error {
 	req := &sproto.ExitTableReq{
 		Playerid: player.ID,
 	}
-	rsp := t.send2Game(req)
+	rsp, err := t.send2Game(req)
+	if err != nil {
+		// RPC 失败，直接返回错误，避免"假成功"
+		return errors.New("failed to send exit table request: " + err.Error())
+	}
 	if rsp.Ack == nil {
+		// 游戏服返回空响应，视为成功（兼容某些情况下的空应答）
 		return nil
 	}
 	ack, err := rsp.Ack.UnmarshalNew()
 	if err != nil {
-		logger.Log.Error(err.Error())
-		return nil
+		logger.Log.Errorf("Failed to unmarshal exit table ack: %v", err)
+		return errors.New("failed to unmarshal exit table response")
 	}
-	if ack.(*sproto.ExitTableAck).Result != 0 {
+	exitAck := ack.(*sproto.ExitTableAck)
+	if exitAck.Result != 0 {
 		return errors.New("player cannot exit table")
 	}
 	return nil
@@ -123,26 +147,36 @@ func (t *Table) SendStartClient(p *Player) {
 	t.Match.App.SendPushToUsers(t.Match.App.GetServer().Type, data, []string{p.ID}, "proxy")
 }
 
-func (t *Table) SendNetState(player *Player, online bool) {
+func (t *Table) SendNetState(player *Player, online bool) error {
 	req := &sproto.NetStateReq{
 		Uid:    player.ID,
 		Online: online,
 	}
-	t.send2Game(req)
+	_, err := t.send2Game(req)
+	if err != nil {
+		logger.Log.Errorf("Failed to send net state: %v", err)
+		return err
+	}
+	return nil
 }
 
-func (t *Table) SendCancelTableReq() {
+func (t *Table) SendCancelTableReq() error {
 	req := &sproto.CancelTableReq{
 		Reason: 1,
 	}
-	t.send2Game(req)
+	_, err := t.send2Game(req)
+	if err != nil {
+		logger.Log.Errorf("Failed to send cancel table request: %v", err)
+		return err
+	}
+	return nil
 }
 
-func (t *Table) send2Game(msg proto.Message) *sproto.GameAck {
+func (t *Table) send2Game(msg proto.Message) (*sproto.GameAck, error) {
 	data, err := anypb.New(msg)
 	if err != nil {
 		logger.Log.Errorf("Failed to encode message: %v", err)
-		return nil
+		return nil, err
 	}
 
 	req := &sproto.GameReq{
@@ -152,9 +186,10 @@ func (t *Table) send2Game(msg proto.Message) *sproto.GameAck {
 	}
 	rsp := &sproto.GameAck{}
 	if err = t.Match.App.RPC(context.Background(), t.Match.Viper.GetString("game_type")+".remote.message", rsp, req); err != nil {
-		logger.Log.Errorf("Failed to send message: %v", err)
+		logger.Log.Errorf("Failed to send message to game server: %v", err)
+		return nil, err
 	}
-	return rsp
+	return rsp, nil
 }
 
 func (t *Table) getSeat() int32 {
