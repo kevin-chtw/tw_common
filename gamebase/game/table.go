@@ -456,6 +456,9 @@ func (t *Table) gameOver() {
 	t.Send2Match(gameOver)
 	for _, player := range t.players {
 		playerManager.Delete(player.isBot, player.ack.Uid) // 从玩家管理器中删除玩家
+		if player.isBot {
+			botManager.RemoveBot(player.ack.Uid)
+		}
 	}
 	tableManager.Delete(t.MatchID, t.tableID) // 从桌子管理器中删除
 

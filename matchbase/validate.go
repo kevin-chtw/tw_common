@@ -76,7 +76,6 @@ func (m *Match) ValidatePlayer(ctx context.Context, opts ...ValidateOption) (*Pl
 			return nil, errors.New("player not found")
 		}
 		player = playerCreator(ctx, uid, m.Viper.GetInt32("matchid"), m.Viper.GetInt64("initial_chips"))
-		m.playermgr.Store(player)
 	}
 
 	return player, nil
