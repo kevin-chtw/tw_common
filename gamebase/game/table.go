@@ -356,6 +356,7 @@ func (t *Table) HandleAddPlayer(ctx context.Context, msg proto.Message) (proto.M
 	t.players[req.Playerid] = player
 
 	if player.isBot {
+		botManager.AddBot(botCreator(player.ack.Uid, t.MatchID, t.tableID))
 		t.handleEnterGame(player, nil)
 	}
 

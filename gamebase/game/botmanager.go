@@ -63,12 +63,10 @@ func (b *BotManager) tick() {
 }
 
 // AddBot 添加一个新的bot玩家
-func (m *BotManager) AddBot(uid string, matchid, tableid int32) *BotPlayer {
-	bot := botCreator(uid, matchid, tableid)
+func (m *BotManager) AddBot(bot *BotPlayer) {
 	m.mu.Lock()
 	defer m.mu.Unlock()
 	m.bots[bot.Uid] = bot
-	return bot
 }
 
 // RemoveBot 移除一个bot玩家
@@ -96,7 +94,8 @@ func (m *BotManager) processIncomingMessages() {
 		bot := m.GetBot(msg.BotID)
 		ack := msg.Msg.(*cproto.GameAck)
 		if bot == nil {
-			bot = m.AddBot(msg.BotID, ack.Matchid, ack.Tableid)
+			logger.Log.Errorf("bot not found %s", msg.BotID)
+			continue
 		}
 		bot.OnBotMsg(ack)
 	}
