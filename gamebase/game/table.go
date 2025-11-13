@@ -55,7 +55,8 @@ type Table struct {
 	gameOnce       sync.Once  // 确保每局游戏结束只执行一次
 
 	//dissolveMutex sync.Mutex // 保护dissovle的对象锁
-	dissovle *cproto.GameDissolveAck
+	dissovle     *cproto.GameDissolveAck
+	gameOverTime *time.Time // 游戏结束时间，用于延迟开始下一局
 }
 
 // NewTable 创建新的游戏桌实例
@@ -211,6 +212,8 @@ func (t *Table) gameBegin() {
 	t.curGameCount++
 	// 重置gameOnce以允许新一局游戏的NotifyGameOver执行
 	t.gameOnce = sync.Once{}
+	// 清除游戏结束时间，避免重复触发
+	t.gameOverTime = nil
 	t.sendGameBegin()
 	t.historyMsg = make(map[string][]*cproto.GameAck)
 	t.game = gameCreator(t, t.curGameCount)
@@ -440,11 +443,8 @@ func (t *Table) NotifyGameOver(gameId int32, roundData string) {
 		}
 		t.Send2Match(result)
 		t.sendGameOver()
-		if t.curGameCount >= t.gameCount {
-			go t.gameOver()
-		} else {
-			go t.checkBegin()
-		}
+		now := time.Now()
+		t.gameOverTime = &now
 	})
 }
 
@@ -581,6 +581,17 @@ func (t *Table) GetScoreBase() int64 {
 
 func (t *Table) Tick() {
 	t.checkDissolve()
+
+	if t.gameOverTime != nil {
+		if t.curGameCount >= t.gameCount {
+			t.gameOverTime = nil
+			t.gameOver()
+		} else if time.Since(*t.gameOverTime) >= 5*time.Second {
+			t.gameOverTime = nil
+			t.checkBegin()
+		}
+	}
+
 	t.gameMutex.Lock()
 	defer t.gameMutex.Unlock()
 	if t.game != nil {
