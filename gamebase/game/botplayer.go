@@ -20,19 +20,21 @@ type PendingReq struct {
 
 // BotPlayer 表示游戏中的bot玩家
 type BotPlayer struct {
-	Bot     IBot
-	Uid     string
-	matchid int32
-	tableid int32
-	Seat    int32
+	Bot       IBot
+	Uid       string
+	Seat      int32
+	Scorebase int64
+	matchid   int32
+	tableid   int32
 }
 
 // NewBotPlayer 创建新的bot玩家实例
-func NewBotPlayer(uid string, matchid, tableid int32) *BotPlayer {
+func NewBotPlayer(uid string, matchid, tableid int32, scorebase int64) *BotPlayer {
 	b := &BotPlayer{
-		Uid:     uid,
-		matchid: matchid,
-		tableid: tableid,
+		Uid:       uid,
+		matchid:   matchid,
+		tableid:   tableid,
+		Scorebase: scorebase,
 	}
 	return b
 }

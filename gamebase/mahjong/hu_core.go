@@ -21,6 +21,7 @@ type HuCore struct {
 }
 
 func NewHuCore(maxHandCount int) *HuCore {
+
 	hc := &HuCore{
 		maxHandCount: maxHandCount,
 		mapHuAll:     make([]map[int]TileStyle, maxHandCount+1),
@@ -37,6 +38,7 @@ func NewHuCore(maxHandCount int) *HuCore {
 	}
 
 	hc.initialize()
+	InitTingCore(maxHandCount)
 	return hc
 }
 

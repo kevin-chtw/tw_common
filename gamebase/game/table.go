@@ -185,8 +185,6 @@ func (t *Table) handleGameDissolve(player *Player, msg proto.Message) error {
 }
 
 func (t *Table) checkDissolve() {
-	//t.dissolveMutex.Lock()
-
 	if t.dissovle == nil {
 		return
 	}
@@ -194,7 +192,6 @@ func (t *Table) checkDissolve() {
 		return
 	}
 	t.dissovle = nil
-	//t.dissolveMutex.Unlock()
 	for _, p := range t.players {
 		p.ack.Ready = false
 	}
@@ -356,7 +353,7 @@ func (t *Table) HandleAddPlayer(ctx context.Context, msg proto.Message) (proto.M
 	t.players[req.Playerid] = player
 
 	if player.isBot {
-		botManager.AddBot(botCreator(player.ack.Uid, t.MatchID, t.tableID))
+		botManager.AddBot(botCreator(player.ack.Uid, t.MatchID, t.tableID, t.scoreBase))
 		t.handleEnterGame(player, nil)
 	}
 
@@ -446,6 +443,7 @@ func (t *Table) NotifyGameOver(gameId int32, roundData string) {
 		t.sendGameOver()
 		now := time.Now()
 		t.gameOverTime = &now
+		logger.Log.Warnf("Game over: %d", t.curGameCount)
 	})
 }
 
@@ -487,6 +485,9 @@ func (t *Table) send2Account(bot bool, msg proto.Message) (proto.Message, error)
 }
 
 func (t *Table) Send2Match(msg proto.Message) {
+	if t.MatchType == "trainer" {
+		return
+	}
 	logger.Log.Info(msg)
 	data, err := anypb.New(msg)
 	if err != nil {
@@ -590,7 +591,7 @@ func (t *Table) Tick() {
 		if t.curGameCount >= t.gameCount {
 			t.gameOverTime = nil
 			t.gameOver()
-		} else if time.Since(*t.gameOverTime) >= 5*time.Second {
+		} else if t.MatchType == "trainer" || time.Since(*t.gameOverTime) >= 5*time.Second {
 			t.gameOverTime = nil
 			t.checkBegin()
 		}
